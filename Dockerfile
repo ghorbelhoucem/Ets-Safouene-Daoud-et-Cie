@@ -1,12 +1,21 @@
-FROM nginx:1.27-alpine
+FROM python:3.12-slim
 
-COPY index.html /usr/share/nginx/html/index.html
-COPY config.js /usr/share/nginx/html/config.js
-COPY images/ /usr/share/nginx/html/images/
-COPY src/ /usr/share/nginx/html/src/
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-EXPOSE 80
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+COPY tests ./tests
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:8000/health || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
