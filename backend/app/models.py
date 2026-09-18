@@ -57,8 +57,8 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False)
-    auth_kind: Mapped[AuthKind] = mapped_column(Enum(AuthKind, name="auth_kind"), nullable=False)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="ets_user_role"), nullable=False)
+    auth_kind: Mapped[AuthKind] = mapped_column(Enum(AuthKind, name="ets_auth_kind"), nullable=False)
     pin_hash: Mapped[str | None] = mapped_column(String(255))
     operator_id: Mapped[str | None] = mapped_column(String(32), unique=True)
     password_hash: Mapped[str | None] = mapped_column(String(255))
@@ -74,7 +74,7 @@ class InventoryItem(Base):
     sku: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     category: Mapped[ItemCategory] = mapped_column(
-        Enum(ItemCategory, name="item_category"), nullable=False
+        Enum(ItemCategory, name="ets_item_category"), nullable=False
     )
     qty_on_hand: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reorder_min: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
@@ -113,7 +113,7 @@ class Movement(Base):
     movement_type: Mapped[MovementType] = mapped_column(
         Enum(
             MovementType,
-            name="movement_type",
+            name="ets_movement_type",
             values_callable=lambda enum_cls: [member.value for member in enum_cls],
         ),
         nullable=False,
@@ -129,7 +129,7 @@ class Movement(Base):
 
 class IdempotencyKey(Base):
     __tablename__ = "ets_idempotency_keys"
-    __table_args__ = (UniqueConstraint("client_request_id", name="uq_idempotency_client_request"),)
+    __table_args__ = (UniqueConstraint("client_request_id", name="ets_uq_idempotency_client_request"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     client_request_id: Mapped[str] = mapped_column(String(128), nullable=False)
