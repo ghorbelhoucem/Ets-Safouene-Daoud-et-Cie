@@ -1,8 +1,10 @@
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.auth import require_manager
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
@@ -45,3 +47,9 @@ def health(): return {"ok": True}
 @app.post("/api/sync/sheets")
 def trigger_sync(_user: User = Depends(require_manager)):
     with SessionLocal() as db: return sync_mirror(db)
+
+
+# The Railway free-plan deployment serves the kiosk and API from one container.
+_static_dir = Path("/app/static")
+if (_static_dir / "index.html").exists():
+    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="frontend")
