@@ -94,11 +94,11 @@ def _build_payload_for_categories(db: Session, categories: set) -> dict:
 
     purchase_rows = sorted(
         (
-            [it.category.value, it.name, it.qty_on_hand, it.reorder_min]
+            [it.category.value, it.name, it.serial_number or "", it.qty_on_hand, it.reorder_min]
             for it in items
             if it.category != ItemCategory.sops and it.qty_on_hand <= it.reorder_min
         ),
-        key=lambda r: r[2],
+        key=lambda r: r[3],
     )
 
     history_rows = []

@@ -39,6 +39,7 @@ def report_summary(db: Session = Depends(get_db), _user: User = Depends(require_
                 {
                     "txId": c.tx_id,
                     "item": item.name if item else "?",
+                    "serial_number": item.serial_number if item else None,
                     "personRole": c.person_role,
                     "expectedReturn": c.expected_return.isoformat(),
                 }
@@ -46,6 +47,7 @@ def report_summary(db: Session = Depends(get_db), _user: User = Depends(require_
     low = [
         {
             "item": it.name,
+            "serial_number": it.serial_number,
             "quantity": it.qty_on_hand,
             "available": available_qty(db, it),
             "reorder_min": it.reorder_min,
@@ -91,7 +93,7 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
         )
 
     ws2 = wb.create_sheet("Outils empruntés")
-    ws2.append(["Transaction", "Article", "Pris par", "Date de sortie", "Retour prévu"])
+    ws2.append(["Transaction", "Article", "N° de série", "Pris par", "Date de sortie", "Retour prévu"])
     opens = db.execute(
         select(Checkout).where(
             Checkout.returned_at.is_(None), Checkout.item_id.in_(item_ids)
@@ -103,6 +105,7 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
             [
                 c.tx_id,
                 item.name if item else "",
+                item.serial_number if item and item.serial_number else "",
                 c.person_role,
                 c.taken_at.isoformat() if c.taken_at else "",
                 c.expected_return.isoformat() if c.expected_return else "",
@@ -110,16 +113,18 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
         )
 
     ws3 = wb.create_sheet("Mouvements récents")
-    ws3.append(["Date", "Type", "Article", "Quantité", "Utilisateur", "Motif", "Transaction"])
+    ws3.append(["Date", "Type", "Article", "N° de série", "Quantité", "Utilisateur", "Motif", "Transaction"])
     moves = (
         db.execute(select(Movement).order_by(Movement.created_at.desc()).limit(500)).scalars().all()
     )
     for m in moves:
+        item = db.get(InventoryItem, m.item_id) if m.item_id else None
         ws3.append(
             [
                 m.created_at.isoformat() if m.created_at else "",
                 m.movement_type.value,
                 m.item_name,
+                item.serial_number if item and item.serial_number else "",
                 m.qty,
                 m.actor,
                 m.reason or "",

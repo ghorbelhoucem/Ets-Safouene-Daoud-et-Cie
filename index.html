@@ -477,6 +477,12 @@
     return `<span style="font-size:${Math.round(Math.min(width,height)*0.72)}px;vertical-align:middle;">${fallbackIcon}</span>`;
   }
 
+  function itemNameHTML(itemName, serialOverride){
+    const item = inventoryMap[itemName];
+    const serial = serialOverride || (item && item.serial_number) || '';
+    return `<span>${esc(itemName)}${serial ? `<span class="item-meta" style="display:block;">N° de série : ${esc(serial)}</span>` : ''}</span>`;
+  }
+
   let lastFetchTime = 0;
 
   async function refreshRemote(){
@@ -1000,7 +1006,7 @@
             // show the earliest (most urgent) due date among this group
             const earliest = rows.reduce((a,b)=> new Date(a.expectedReturn) < new Date(b.expectedReturn) ? a : b);
             return `<div class="open-row ${anyOverdue?'overdue':''}">
-              <span>${itemThumbHTML(itemName, 26)} ${esc(itemName)}${rows.length>1?` <span class="tag">× ${rows.length}</span>`:''}</span>
+              <span>${itemThumbHTML(itemName, 26)} ${itemNameHTML(itemName)}${rows.length>1?` <span class="tag">× ${rows.length}</span>`:''}</span>
               <span class="due">${anyOverdue?'EN RETARD · ':'prévu '}${fmtDate(earliest.expectedReturn)}</span>
             </div>`;
           }).join('');
@@ -1125,7 +1131,7 @@
       <span class="back-link" id="back">&larr; Retour</span>
       <div class="greet" style="margin-bottom:10px;"><div class="name" style="font-size:18px;">${esc(headerText)}</div></div>
       <div class="form-row" style="margin-top:0;margin-bottom:14px;">
-        <input type="text" id="restockSearchInput" placeholder="Rechercher…" style="font-family:'Inter',sans-serif;letter-spacing:normal;margin-bottom:0;" value="${esc(restockSearchQuery)}" />
+        <input type="text" id="restockSearchInput" placeholder="Rechercher par nom, série ou code-barres…" style="font-family:'Inter',sans-serif;letter-spacing:normal;margin-bottom:0;" value="${esc(restockSearchQuery)}" />
       </div>
       <div class="item-list">
         <div class="item-row ${isNewItem?'selected':''}" data-name="${NEW_ITEM_SENTINEL}" style="border-style:dashed;">
@@ -1138,8 +1144,8 @@
         ${items.length ? items.map(it=>`
           <div class="item-row ${selected===it.item?'selected':''}" data-name="${esc(it.item)}">
             <div>
-              <div class="item-name" style="margin-top:5px;">${itemThumbHTML(it.item, 56, 36)} ${esc(it.item)}</div>
-              <div class="item-meta">Stock actuel : ${it.quantity}${it.serial_number ? ` · ${serialMeta(it)}` : ''}</div>
+              <div class="item-name" style="margin-top:5px;">${itemThumbHTML(it.item, 56, 36)} ${itemNameHTML(it.item)}</div>
+              <div class="item-meta">Stock actuel : ${it.quantity}</div>
             </div>
           </div>
         `).join('') : `<div class="empty-note">Aucun article correspondant.</div>`}
@@ -1161,7 +1167,7 @@
           <h3>Dans votre liste de réapprovisionnement (${restockBasket.length})</h3>
           ${restockBasket.map(b=>`
             <div class="open-row">
-              <span>${itemThumbHTML(b.itemName, 26)} ${esc(b.itemName)} × ${b.qty}${b.serialNumber?` <span class="tag">S/N ${esc(b.serialNumber)}</span>`:''}</span>
+              <span>${itemThumbHTML(b.itemName, 26)} ${itemNameHTML(b.itemName, b.serialNumber)} × ${b.qty}</span>
               <span class="due">${b.category}</span>
             </div>`).join('')}
         </div>
@@ -1249,7 +1255,7 @@
         <tbody>
           ${restockBasket.length ? restockBasket.map((b,idx)=>`
             <tr>
-              <td>${itemThumbHTML(b.itemName, 28)} ${esc(b.itemName)}${b.isNewItem ? ' <span class="pill open">nouveau</span>' : ''}${b.serialNumber ? `<div class="item-meta">N° de série : ${esc(b.serialNumber)}</div>` : ''}</td>
+              <td>${itemThumbHTML(b.itemName, 28)} ${itemNameHTML(b.itemName, b.serialNumber)}${b.isNewItem ? ' <span class="pill open">nouveau</span>' : ''}</td>
               <td><div class="qty-stepper"><button type="button" class="qty-btn" data-qty-target="restockQtyRow_${idx}" data-qty-dir="-1">−</button><input type="number" min="1" value="${b.qty}" id="restockQtyRow_${idx}" data-restock-qty-for="${idx}" class="qty-stepper-input" style="width:56px;" /><button type="button" class="qty-btn" data-qty-target="restockQtyRow_${idx}" data-qty-dir="1">+</button></div></td>
               <td>${esc(b.category)}</td>
               <td><button class="btn-ghost" data-remove="${idx}" style="padding:4px 10px;font-size:10.5px;">Supprimer</button></td>
@@ -1414,7 +1420,7 @@
           <h3>Dans votre liste (${basket.length})</h3>
           ${basket.map(b=>`
             <div class="open-row">
-              <span>${itemThumbHTML(b.itemName, 26)} ${esc(b.itemName)} ${b.qty>1?('× '+b.qty):''}</span>
+              <span>${itemThumbHTML(b.itemName, 26)} ${itemNameHTML(b.itemName)} ${b.qty>1?('× '+b.qty):''}</span>
               <span class="due">${b.category==='Tools' ? 'retour '+hoursLabel(b.hours) : ''}</span>
             </div>`).join('')}
         </div>
@@ -1476,7 +1482,7 @@
       <span class="back-link" id="back">&larr; Scanner un autre article</span>
       <div class="greet" style="margin-bottom:10px;">
         <div style="font-size:40px;">${isOther ? '❓' : itemThumbHTML(itemName, 64)}</div>
-        <div class="name" style="font-size:20px;margin-top:8px;">${isOther ? 'Autre (sans étiquette)' : esc(itemName)}</div>
+        <div class="name" style="font-size:20px;margin-top:8px;">${isOther ? 'Autre (sans étiquette)' : itemNameHTML(itemName)}</div>
         <div class="code">${(takeCategory==='Tools' || takeCategory==='SOPs') ? 'Emprunt avec retour' : 'Usage unique'}</div>
       </div>
       <div class="form-row">
@@ -1635,7 +1641,7 @@
         <tbody>
           ${basket.length ? basket.map(b=>`
             <tr>
-              <td>${itemThumbHTML(b.itemName, 28)} ${esc(b.itemName)}</td>
+              <td>${itemThumbHTML(b.itemName, 28)} ${itemNameHTML(b.itemName)}</td>
               <td><div class="qty-stepper"><button type="button" class="qty-btn" data-qty-target="qtyRow_${b.id}" data-qty-dir="-1">−</button><input type="number" min="1" value="${b.qty}" id="qtyRow_${b.id}" data-qty-for="${b.id}" class="qty-stepper-input" style="width:56px;" /><button type="button" class="qty-btn" data-qty-target="qtyRow_${b.id}" data-qty-dir="1">+</button></div></td>
               <td>${b.category==='Tools' ? 'Retour ' + hoursLabel(b.hours) : (b.category==='Station Parts' ? 'Usage unique' : '')}</td>
               <td><button class="btn-ghost" data-remove="${b.id}" style="padding:4px 10px;font-size:10.5px;">Supprimer</button></td>
@@ -1731,7 +1737,7 @@
       <span class="back-link" id="back">&larr; Retour</span>
       <div class="greet" style="margin-bottom:10px;"><div class="name" style="font-size:18px;">Quel article ?</div></div>
       <div class="form-row" style="margin-top:0;margin-bottom:14px;max-width:none;">
-        <input type="text" id="searchInput" placeholder="Rechercher…" style="font-family:'Inter',sans-serif;letter-spacing:normal;margin-bottom:0;" value="${esc(takeSearchQuery)}" />
+        <input type="text" id="searchInput" placeholder="Rechercher par nom, série ou code-barres…" style="font-family:'Inter',sans-serif;letter-spacing:normal;margin-bottom:0;" value="${esc(takeSearchQuery)}" />
       </div>
       <div class="item-list">
         ${items.length ? items.map(it=>{
@@ -1741,8 +1747,8 @@
             <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
               ${itemThumbHTML(it.item, 56, 36)}
               <div style="min-width:0;">
-                <div class="item-name">${esc(it.item)}</div>
-                <div class="item-meta">${it.reference==='Tools' ? 'Emprunt avec retour' : 'Usage unique'}${it.serial_number ? ` · ${serialMeta(it)}` : ''}</div>
+                <div class="item-name">${itemNameHTML(it.item)}</div>
+                <div class="item-meta">${it.reference==='Tools' ? 'Emprunt avec retour' : 'Usage unique'}</div>
               </div>
             </div>
             <div class="stock ${low?'low':''}" style="flex-shrink:0;padding-left:8px;">${avail} disponible(s)</div>
@@ -1889,7 +1895,7 @@
               <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
                 ${itemThumbHTML(h.item, 56, 36)}
                 <div style="min-width:0;">
-                  <div class="item-name">${esc(h.item)}</div>
+                  <div class="item-name">${itemNameHTML(h.item)}</div>
                   <div class="item-meta">pris par ${esc(h.personRole)} · ${fmtDate(h.timestamp)}</div>
                 </div>
               </div>
@@ -1900,7 +1906,7 @@
             <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
               ${itemThumbHTML(itemName, 56, 36)}
               <div style="min-width:0;">
-                <div class="item-name">${esc(itemName)} <span class="tag">× ${rows.length} emprunté(s)</span></div>
+                <div class="item-name">${itemNameHTML(itemName)} <span class="tag">× ${rows.length} emprunté(s)</span></div>
                 <div class="item-meta">${anyOverdue?'certains en retard':'prévu '+fmtDate(earliest.expectedReturn)}</div>
               </div>
             </div>
@@ -1965,7 +1971,7 @@
       <span class="back-link" id="back">&larr; Annuler et revenir à la liste</span>
       <div class="reader-wrap" style="padding-top:6px;">
         <div class="scan-pulse" style="font-size:56px;margin-bottom:6px;">📷</div>
-        <div class="hint" style="margin-top:12px;font-size:15px;">Scannez le code QR de <strong style="color:var(--text);">${esc(tx.item)}</strong> pour confirmer le retour${extraCount ? ` (${extraCount+1} articles au total — un seul scan suffit)` : ''}</div>
+        <div class="hint" style="margin-top:12px;font-size:15px;">Scannez le code QR de <strong style="color:var(--text);">${itemNameHTML(tx.item)}</strong> pour confirmer le retour${extraCount ? ` (${extraCount+1} articles au total — un seul scan suffit)` : ''}</div>
         ${returnScanError ? `<div class="error-msg" style="margin-top:16px;">${esc(returnScanError)}</div>` : ''}
         <button class="btn-ghost" id="noQrReturnBtn" style="margin-top:60px;">Retourner sans code QR</button>
       </div>
@@ -1995,13 +2001,15 @@
     }
     const trimmed = text.trim();
     const norm = normalizeText(trimmed);
+    const inv = inventoryMap[tx.item] || {};
+    const allowedValues = [tx.item, inv.serial_number, inv.barcode].filter(Boolean);
     const expected = normalizeText(tx.item);
-    let isMatch = norm === expected || norm.includes(expected) || expected.includes(norm);
+    let isMatch = allowedValues.some(value=>normalizeText(value) === norm)
+      || norm.includes(expected) || expected.includes(norm);
     if(!isMatch){
       // Last resort: ignore punctuation entirely (scanner keyboard-layout mangling).
       const normAlnum = domain.normalizeAlnum(trimmed);
-      const expectedAlnum = domain.normalizeAlnum(tx.item);
-      if(normAlnum.length >= 2 && normAlnum === expectedAlnum) isMatch = true;
+      if(normAlnum.length >= 2 && allowedValues.some(value=>domain.normalizeAlnum(value) === normAlnum)) isMatch = true;
     }
     if(!isMatch){
       returnScanError = `Code scanné : « ${trimmed} » — il ne correspond pas à « ${tx.item} ». Réessayez ou utilisez « Retourner sans code QR ».`;
@@ -2041,7 +2049,7 @@
             const people = new Set(rows.map(r=>r.personRole));
             const takenBy = people.size === 1 ? esc(rows[0].personRole) : `${people.size} people`;
             return `<tr class="${anyOverdue?'overdue':''}">
-              <td>${itemThumbHTML(itemName, 28)} ${esc(itemName)}${rows.length>1?` <span class="tag">× ${rows.length}</span>`:''}</td>
+              <td>${itemThumbHTML(itemName, 28)} ${itemNameHTML(itemName)}${rows.length>1?` <span class="tag">× ${rows.length}</span>`:''}</td>
               <td>${takenBy}</td>
               <td>${anyOverdue ? '<span class="pill over">en retard</span>' : fmtDate(earliest.expectedReturn)}</td>
               <td><button class="btn-ghost" data-remove-item="${esc(itemName)}" style="padding:4px 10px;font-size:10.5px;">Supprimer${rows.length>1?' tout':''}</button></td>
@@ -2150,7 +2158,7 @@
       ${reportTab==='stock' ? `
         <div>
           <div class="form-row" style="margin-top:0;margin-bottom:16px;max-width:none;">
-            <input type="text" id="reportStockSearchInput" placeholder="Rechercher dans le stock…" style="font-family:'Inter',sans-serif;letter-spacing:normal;margin-bottom:0;" value="${esc(reportStockSearchQuery)}" />
+            <input type="text" id="reportStockSearchInput" placeholder="Rechercher par nom, série ou code-barres…" style="font-family:'Inter',sans-serif;letter-spacing:normal;margin-bottom:0;" value="${esc(reportStockSearchQuery)}" />
           </div>
           ${roomCategories().includes('Tools') ? `
           <div style="font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);margin:0 0 8px;">Outils</div>
@@ -2161,7 +2169,7 @@
             return `<div class="stock-grid">${filteredTools.map(it=>{
               const toolLow = Number(it.quantity) <= Number(it.reorder_min || 5);
               return `<div class="stockbar">
-              <span>${iconForRef('Tools')} ${esc(it.item)}${it.serial_number ? `<small class="item-meta" style="display:block;">${serialMeta(it)}</small>` : ''}</span>
+              <span>${iconForRef('Tools')} ${itemNameHTML(it.item)}</span>
               <span class="stock ${toolLow || String(it.availability||'').includes('missing') ? 'low':''}">${it.quantity!=null?it.quantity:'—'} en stock · ${esc(it.availability||'—')}</span>
             </div>`;
             }).join('')}</div>`;
@@ -2176,7 +2184,7 @@
             return `<div class="stock-grid">${filteredParts.map(it=>{
               const low = Number(it.quantity) <= Number(it.reorder_min || 5);
               return `<div class="stockbar">
-                <span>${iconForRef('Station Parts')} ${esc(it.item)}${it.serial_number ? `<small class="item-meta" style="display:block;">${serialMeta(it)}</small>` : ''}</span>
+                <span>${iconForRef('Station Parts')} ${itemNameHTML(it.item)}</span>
                 <span class="stock ${low?'low':''}">${it.quantity!=null?it.quantity:'—'} restante(s) ${it.availability==='X'?'— RUPTURE':''}</span>
               </div>`;
             }).join('')}</div>`;
@@ -2246,7 +2254,7 @@
                     const net = s.restocked - s.taken;
                     const netStr = net > 0 ? `+${net}` : `${net}`;
                     return `<tr>
-                      <td>${itemThumbHTML(name, 26)} ${esc(name)}</td>
+                      <td>${itemThumbHTML(name, 26)} ${itemNameHTML(name)}</td>
                       <td>${s.taken > 0 ? '-'+s.taken : '—'}</td>
                       <td>${s.restocked > 0 ? '+'+s.restocked : '—'}</td>
                       <td style="color:${net<0?'var(--danger)':net>0?'var(--success)':'var(--text-dim)'};font-weight:600;">${netStr}</td>
@@ -2288,7 +2296,7 @@
             if(!needsPurchase.length) return `<div class="empty-note">Aucun réapprovisionnement nécessaire actuellement.</div>`;
             return `<div class="stock-grid">${needsPurchase.map(it=>`
               <div class="stockbar" style="border-color:var(--danger);">
-                <span>${itemThumbHTML(it.item, 26)} ${esc(it.item)}</span>
+                <span>${itemThumbHTML(it.item, 26)} ${itemNameHTML(it.item)}</span>
                 <span class="stock low">${it.quantity} restante(s) (min. ${it.reorder_min || 5})</span>
               </div>
             `).join('')}</div>`;
@@ -2314,7 +2322,7 @@
                 const { first: h, qty } = groups[key];
                 return `<tr class="${isOverdue(h) ? 'overdue':''}">
                   <td>${esc(h.personRole)}</td>
-                  <td>${itemThumbHTML(h.item, 28)} ${esc(h.item)}${qty>1?` <span class="tag">× ${qty}</span>`:''}</td>
+                  <td>${itemThumbHTML(h.item, 28)} ${itemNameHTML(h.item)}${qty>1?` <span class="tag">× ${qty}</span>`:''}</td>
                   <td>${fmtDate(h.timestamp)}</td>
                   <td>${fmtDate(h.expectedReturn)}</td>
                   <td>${h.returnedAt==='N/A' ? '<span class="pill">n/a</span>' : (h.returnedAt==='Not returned' ? (isOverdue(h) ? '<span class="pill over">en retard</span>' : '<span class="pill open">sorti</span>') : '<span class="pill done">'+fmtDate(h.returnedAt)+'</span>')}</td>
@@ -2380,7 +2388,8 @@
     let matchName = candidateNames.find(name => {
       const inv = inventoryMap[name];
       const barcode = inv && inv.barcode ? normalizeText(inv.barcode) : '';
-      return barcode && barcode === norm;
+      const serial = inv && inv.serial_number ? normalizeText(inv.serial_number) : '';
+      return (barcode && barcode === norm) || (serial && serial === norm);
     });
     if(!matchName){
       matchName = candidateNames.find(name => normalizeText(name) === norm);
