@@ -1,4 +1,4 @@
-# Runtime config injected for the kiosk. Overwritten by Docker entrypoint when needed.
+// Runtime config for the kiosk.
 window.SUPPLY_CONFIG = {
   apiBaseUrl: '/api'
 };
