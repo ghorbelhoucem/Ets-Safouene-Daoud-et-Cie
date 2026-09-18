@@ -53,7 +53,7 @@ class MovementType(str, enum.Enum):
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "ets_users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -68,7 +68,7 @@ class User(Base):
 
 
 class InventoryItem(Base):
-    __tablename__ = "inventory_items"
+    __tablename__ = "ets_inventory_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     sku: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
@@ -91,11 +91,11 @@ class InventoryItem(Base):
 
 
 class Checkout(Base):
-    __tablename__ = "checkouts"
+    __tablename__ = "ets_checkouts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tx_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ets_inventory_items.id"), nullable=False)
     person_role: Mapped[str] = mapped_column(String(200), nullable=False)
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -107,7 +107,7 @@ class Checkout(Base):
 
 
 class Movement(Base):
-    __tablename__ = "movements"
+    __tablename__ = "ets_movements"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     movement_type: Mapped[MovementType] = mapped_column(
@@ -118,7 +118,7 @@ class Movement(Base):
         ),
         nullable=False,
     )
-    item_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("inventory_items.id"))
+    item_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("ets_inventory_items.id"))
     item_name: Mapped[str] = mapped_column(String(200), nullable=False)
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
     actor: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -128,7 +128,7 @@ class Movement(Base):
 
 
 class IdempotencyKey(Base):
-    __tablename__ = "idempotency_keys"
+    __tablename__ = "ets_idempotency_keys"
     __table_args__ = (UniqueConstraint("client_request_id", name="uq_idempotency_client_request"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -139,7 +139,7 @@ class IdempotencyKey(Base):
 
 
 class AuditEvent(Base):
-    __tablename__ = "audit_events"
+    __tablename__ = "ets_audit_events"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -155,7 +155,7 @@ class WarrantyReport(Base):
     which part, and what the issue was. Goes straight to the Storage Room
     Sheet's own dedicated "Warranty" tab.
     """
-    __tablename__ = "warranty_reports"
+    __tablename__ = "ets_warranty_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     part_name: Mapped[str] = mapped_column(String(200), nullable=False)
