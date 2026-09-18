@@ -211,6 +211,9 @@
   function canManageCurrentRoom(){
     return Boolean(currentPerson && currentPerson.role === 'Management');
   }
+  function canViewReports(){
+    return Boolean(currentPerson && ['Management', 'Maintenance'].includes(currentPerson.role));
+  }
   let pendingRole = null;
   let pendingName = null;
   let pendingSharedNames = null;
@@ -512,7 +515,7 @@
     const inReport = screen === 'report';
     btn.textContent = inReport ? '← Fermer le rapport' : 'Rapport de gestion';
     btn.classList.toggle('active', inReport);
-    btn.style.display = currentPerson && currentPerson.role === 'Management' ? '' : 'none';
+    btn.style.display = canViewReports() ? '' : 'none';
   }
 
   function updateSignOutBtn(){
@@ -582,9 +585,8 @@
         renderStage();
         return;
       }
-      if(!canManageCurrentRoom()){
-        const allowedRoles = selectedRoom === 'sop' ? 'Supervisor, Maintenance, Management, or Devs' : 'Maintenance, Management, or Devs';
-        loadError = `Le rapport de gestion nécessite une connexion ${allowedRoles}.`;
+      if(!canViewReports()){
+        loadError = 'Le rapport de gestion nécessite une connexion Management ou Majdi.';
         renderStage();
         updateStatusDot();
         return;

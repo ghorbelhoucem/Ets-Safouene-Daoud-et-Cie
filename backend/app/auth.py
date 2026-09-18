@@ -51,7 +51,7 @@ def require_roles(*roles: UserRole):
     return dependency
 
 require_manager = require_roles(UserRole.management)
-require_report_access = require_roles(UserRole.management)
+require_report_access = require_roles(UserRole.management, UserRole.maintenance)
 require_restock_access = require_roles(UserRole.management)
 
 def can_restock_category(user: User, category: ItemCategory) -> bool:

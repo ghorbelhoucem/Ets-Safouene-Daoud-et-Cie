@@ -68,6 +68,12 @@ def test_pin_must_have_exactly_four_digits(client: TestClient):
 
 def test_only_management_can_receive_stock(client: TestClient):
     majdi_token = login(client, "maintenance", "7351")
+    report = client.get(
+        "/api/reports/summary", headers={"Authorization": f"Bearer {majdi_token}"}
+    )
+    assert report.status_code == 200
+    assert report.json()["ok"] is True
+
     response = client.post(
         "/api/receive",
         headers={"Authorization": f"Bearer {majdi_token}"},

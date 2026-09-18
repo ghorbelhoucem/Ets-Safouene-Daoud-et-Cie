@@ -88,7 +88,8 @@ test('affiche uniquement les deux profils autorisés', async ({ page }) => {
 
 test('connexion Majdi avec un PIN à quatre chiffres', async ({ page }) => {
   await signInMajdi(page);
-  await expect(page.getByRole('button', { name: 'Rapport de gestion' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Rapport de gestion' }).click();
+  await expect(page.getByRole('button', { name: /Ouverts/ })).toBeVisible();
 });
 
 test('sortie puis retour d’un outil', async ({ page }) => {
@@ -102,7 +103,7 @@ test('sortie puis retour d’un outil', async ({ page }) => {
   await expect(page.getByText(/article\(s\) enregistré\(s\)/)).toBeVisible();
 });
 
-test('le rapport est réservé au profil Management', async ({ page }) => {
+test('le rapport est aussi accessible au profil Management', async ({ page }) => {
   await page.getByText('Management', { exact: true }).click();
   await enterPin(page, '4827');
   await page.getByRole('button', { name: 'Rapport de gestion' }).click();

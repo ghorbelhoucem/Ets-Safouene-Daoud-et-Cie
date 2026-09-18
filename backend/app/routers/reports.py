@@ -67,7 +67,7 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
 
     ws = wb.active
     ws.title = "Stock"
-    ws.append(["SKU", "Article", "Catégorie", "Quantité", "Disponible", "Seuil de commande", "Sous le seuil", "Code-barres"])
+    ws.append(["SKU", "Article", "N° de série", "Catégorie", "Quantité", "Disponible", "Seuil de commande", "Sous le seuil", "Code-barres"])
     items = db.execute(
         select(InventoryItem)
         .where(InventoryItem.category != ItemCategory.sops)
@@ -80,6 +80,7 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
             [
                 it.sku,
                 it.name,
+                it.serial_number or "",
                 it.category.value,
                 it.qty_on_hand,
                 avail,
