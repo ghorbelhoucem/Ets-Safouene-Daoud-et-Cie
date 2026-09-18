@@ -22,5 +22,5 @@
     return () => document.removeEventListener("keydown", onKeyDown, { capture: true });
   }
 
-  window.SupplyScanner = { attachKeyboardScanner };
+  window.EtsScanner = { attachKeyboardScanner };
 })();

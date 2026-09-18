@@ -25,13 +25,13 @@ async def lifespan(_app):
     Base.metadata.create_all(bind=engine)
     if settings.seed_on_startup:
         with SessionLocal() as db: seed_if_empty(db)
-    if settings.legacy_webapp_url.strip() or settings.sop_webapp_url.strip():
+    if settings.legacy_webapp_url.strip():
         scheduler.add_job(scheduled_sync, "interval", minutes=max(1, settings.sheet_sync_interval_minutes), id="sheet_sync", replace_existing=True)
         scheduler.start()
     yield
     if scheduler.running: scheduler.shutdown(wait=False)
 
-app = FastAPI(title="ETS Safouene Daoud et Cie Inventory API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="API Stock Automobile — ETS Safouene Daoud et Cie", version="2.0.0", lifespan=lifespan)
 settings = get_settings()
 origins = [x.strip() for x in settings.cors_origins.split(",") if x.strip()]
 wildcard = origins == ["*"]

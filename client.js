@@ -19,10 +19,10 @@
   }
 
   function mapError(err) {
-    const raw = String((err && err.message) || err || 'Unknown error');
-    if (raw.includes('AbortError')) return 'Request timed out. Please try again.';
-    if (raw.includes('Failed to fetch')) return 'Network error. Check your connection and try again.';
-    return 'Unexpected server error. Please retry.';
+    const raw = String((err && err.message) || err || 'Erreur inconnue');
+    if (raw.includes('AbortError')) return 'La requête a expiré. Réessayez.';
+    if (raw.includes('Failed to fetch')) return 'Erreur réseau. Vérifiez votre connexion.';
+    return 'Erreur serveur inattendue. Réessayez.';
   }
 
   function createApiClient(baseUrl, config = {}) {
@@ -86,7 +86,7 @@
       clearToken,
       newRequestId,
       async loadInventory() {
-        const data = await requestJson('/inventory', { method: 'GET', auth: false });
+        const data = await requestJson('/inventory', { method: 'GET', auth: true });
         if (data && data.ok === false) return data;
         return { ok: true, inventory: data.inventory || [], history: data.history || [], warranty: data.warranty || [] };
       },
@@ -169,11 +169,11 @@
             sop_status: payload.sop_status,
           });
         }
-        return { ok: false, error: 'Unsupported action', code: 'UNSUPPORTED' };
+        return { ok: false, error: 'Action non prise en charge', code: 'UNSUPPORTED' };
       },
       mapError,
     };
   }
 
-  window.SupplyApi = { createApiClient };
+  window.EtsApi = { createApiClient };
 })();

@@ -1,4 +1,4 @@
 // Runtime config for the kiosk.
-window.SUPPLY_CONFIG = {
+window.ETS_CONFIG = {
   apiBaseUrl: '/api'
 };

@@ -1,15 +1,8 @@
-"""
-Google Sheets sync — pushes Storage Room and SOP Room data to two
-COMPLETELY SEPARATE Google Sheets (different access permissions per room).
+"""Optional Google Sheets mirror for the active automotive inventory.
 
-No Google Cloud service account needed: this forwards each room's current
-state to its own (free) Apps Script Web App deployment, which does the
-actual writing using its own built-in Google authorization.
-
-Enable with:
-  LEGACY_WEBAPP_URL=<Storage Room Apps Script /exec URL>
-  SOP_WEBAPP_URL=<SOP Room Apps Script /exec URL>
-Either can be left blank to skip syncing that room.
+No Google Cloud service account is required. When ``LEGACY_WEBAPP_URL`` is
+configured, the current KIA parts/tools state is sent to that Apps Script web
+application. The variable name is retained for deployment compatibility.
 """
 
 from __future__ import annotations
@@ -26,8 +19,7 @@ from app.models import AuditEvent, Checkout, InventoryItem, ItemCategory, Moveme
 
 logger = logging.getLogger(__name__)
 
-STORAGE_CATEGORIES = {ItemCategory.tools, ItemCategory.station_parts}
-SOP_CATEGORIES = {ItemCategory.sops}
+AUTOMOTIVE_CATEGORIES = {ItemCategory.tools, ItemCategory.station_parts}
 
 
 def _fmt(dt) -> str:
@@ -61,9 +53,7 @@ def _consolidate_history_rows(rows: list) -> list:
 
 
 def _build_payload_for_categories(db: Session, categories: set) -> dict:
-    """Builds an Inventory/History/Purchase-List payload limited to just the
-    given set of ItemCategory values — used to keep Storage Room and SOP
-    Room data fully separate from each other."""
+    """Construit le miroir stock/historique limité aux catégories actives."""
     items = [
         it
         for it in db.execute(select(InventoryItem).order_by(InventoryItem.name)).scalars().all()
@@ -88,14 +78,11 @@ def _build_payload_for_categories(db: Session, categories: set) -> dict:
             elif missing <= 0:
                 availability = "✓"
             else:
-                availability = f"{missing} part(s) missing"
+                availability = f"{missing} outil(s) emprunté(s)"
         else:
             availability = "X" if it.qty_on_hand <= 0 else "✓"
 
-        if it.category == ItemCategory.sops:
-            reference = f"{it.sop_status} SOP" if it.sop_status else "SOPs"
-        else:
-            reference = it.category.value
+        reference = it.category.value
         inventory_rows.append([reference, it.name, it.qty_on_hand, availability])
 
     purchase_rows = sorted(
@@ -114,11 +101,11 @@ def _build_payload_for_categories(db: Session, categories: set) -> dict:
             continue
         item = db.get(InventoryItem, c.item_id)
         is_tool_like = item and item.category in (ItemCategory.tools, ItemCategory.sops)
-        expected = _fmt(c.expected_return) if (is_tool_like and c.expected_return) else "None"
+        expected = _fmt(c.expected_return) if (is_tool_like and c.expected_return) else "Aucun"
         if is_tool_like:
-            returned_at = _fmt(c.returned_at) if c.returned_at else "Not returned"
+            returned_at = _fmt(c.returned_at) if c.returned_at else "Non retourné"
         else:
-            returned_at = _fmt(c.returned_at) if c.returned_at else "N/A"
+            returned_at = _fmt(c.returned_at) if c.returned_at else "Sans objet"
         history_rows.append(
             [
                 _fmt(c.taken_at),
@@ -140,14 +127,14 @@ def _build_payload_for_categories(db: Session, categories: set) -> dict:
     for m in other_moves:
         if m.item_id not in item_ids:
             continue
-        label = "Restock" if m.movement_type.value == "receive" else "Adjustment"
+        label = "Réception" if m.movement_type.value == "receive" else "Ajustement"
         history_rows.append(
             [
                 _fmt(m.created_at),
                 m.actor,
                 m.item_name,
                 label,
-                "N/A",
+                "Sans objet",
                 m.related_tx_id or "",
                 m.qty,
                 "",
@@ -182,35 +169,21 @@ def _push_to_webapp(webapp_url: str, payload: dict) -> None:
 def sync_mirror(db: Session) -> dict:
     settings = get_settings()
     storage_url = (settings.legacy_webapp_url or "").strip()
-    sop_url = (settings.sop_webapp_url or "").strip()
-
     results = {}
 
     if storage_url:
-        storage_payload = _build_payload_for_categories(db, STORAGE_CATEGORIES)
+        storage_payload = _build_payload_for_categories(db, AUTOMOTIVE_CATEGORIES)
         try:
             _push_to_webapp(storage_url, storage_payload)
-            results["storage"] = {"ok": True, "updated_at": storage_payload["updated_at"]}
+            results["stock"] = {"ok": True, "updated_at": storage_payload["updated_at"]}
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Storage Room sheet sync failed")
-            results["storage"] = {"ok": False, "error": str(exc)}
+            logger.exception("Automotive inventory sheet sync failed")
+            results["stock"] = {"ok": False, "error": str(exc)}
     else:
-        logger.info("Storage Room sheet sync skipped (no LEGACY_WEBAPP_URL set).")
-        results["storage"] = {"ok": True, "skipped": True}
+        logger.info("Automotive inventory sheet sync skipped (no LEGACY_WEBAPP_URL set).")
+        results["stock"] = {"ok": True, "skipped": True}
 
-    if sop_url:
-        sop_payload = _build_payload_for_categories(db, SOP_CATEGORIES)
-        try:
-            _push_to_webapp(sop_url, sop_payload)
-            results["sop"] = {"ok": True, "updated_at": sop_payload["updated_at"]}
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("SOP Room sheet sync failed")
-            results["sop"] = {"ok": False, "error": str(exc)}
-    else:
-        logger.info("SOP Room sheet sync skipped (no SOP_WEBAPP_URL set).")
-        results["sop"] = {"ok": True, "skipped": True}
-
-    overall_ok = results["storage"]["ok"] and results["sop"]["ok"]
+    overall_ok = results["stock"]["ok"]
     db.add(AuditEvent(
         event_type="sheet_sync_ok" if overall_ok else "sheet_sync_failed",
         detail=str(results),
@@ -221,17 +194,14 @@ def sync_mirror(db: Session) -> dict:
 
 def maybe_sync_after_mutation(db: Session) -> None:
     settings = get_settings()
-    if (settings.legacy_webapp_url or "").strip() or (settings.sop_webapp_url or "").strip():
+    if (settings.legacy_webapp_url or "").strip():
         sync_mirror(db)
 
 
 def append_warranty_report(part_name: str, serial_number: str, issue: str, reported_by: str, created_at) -> dict:
     """
-    Warranty reports are a one-shot log entry, not tracked inventory state —
-    so this appends a single row directly to the Storage Room Sheet's own
-    "Warranty" tab, instead of going through the periodic full-rewrite sync.
-    Always goes to the Storage Room sheet (LEGACY_WEBAPP_URL), never the SOP
-    sheet — Warranty is a Storage Room feature only.
+    Warranty reports are one-shot log entries, so this appends a row directly
+    to the automotive stock Sheet's ``Warranty`` tab.
     """
     settings = get_settings()
     webapp_url = (settings.legacy_webapp_url or "").strip()

@@ -7,9 +7,9 @@ from openpyxl import Workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_manager, require_report_access
+from app.auth import require_report_access
 from app.database import get_db
-from app.models import Checkout, InventoryItem, Movement, User
+from app.models import Checkout, InventoryItem, ItemCategory, Movement, User
 from app.services.inventory import availability_label, available_qty
 
 router = APIRouter(tags=["reports"])
@@ -17,9 +17,18 @@ router = APIRouter(tags=["reports"])
 
 @router.get("/reports/summary")
 def report_summary(db: Session = Depends(get_db), _user: User = Depends(require_report_access)):
-    items = db.execute(select(InventoryItem).order_by(InventoryItem.name)).scalars().all()
+    items = db.execute(
+        select(InventoryItem)
+        .where(InventoryItem.category != ItemCategory.sops)
+        .order_by(InventoryItem.name)
+    ).scalars().all()
+    item_ids = {item.id for item in items}
     open_tx = (
-        db.execute(select(Checkout).where(Checkout.returned_at.is_(None))).scalars().all()
+        db.execute(
+            select(Checkout).where(
+                Checkout.returned_at.is_(None), Checkout.item_id.in_(item_ids)
+            )
+        ).scalars().all()
     )
     overdue = []
     now = datetime.now(timezone.utc)
@@ -57,9 +66,14 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
     wb = Workbook()
 
     ws = wb.active
-    ws.title = "Inventory"
-    ws.append(["SKU", "Item", "Category", "Qty On Hand", "Available", "Reorder Min", "Below Min", "Barcode"])
-    items = db.execute(select(InventoryItem).order_by(InventoryItem.name)).scalars().all()
+    ws.title = "Stock"
+    ws.append(["SKU", "Article", "Catégorie", "Quantité", "Disponible", "Seuil de commande", "Sous le seuil", "Code-barres"])
+    items = db.execute(
+        select(InventoryItem)
+        .where(InventoryItem.category != ItemCategory.sops)
+        .order_by(InventoryItem.name)
+    ).scalars().all()
+    item_ids = {item.id for item in items}
     for it in items:
         avail = available_qty(db, it)
         ws.append(
@@ -70,14 +84,18 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
                 it.qty_on_hand,
                 avail,
                 it.reorder_min,
-                "YES" if avail <= it.reorder_min else "NO",
+                "OUI" if avail <= it.reorder_min else "NON",
                 it.barcode or "",
             ]
         )
 
-    ws2 = wb.create_sheet("Open Checkouts")
-    ws2.append(["TxId", "Item", "Taken By", "Taken At", "Expected Return"])
-    opens = db.execute(select(Checkout).where(Checkout.returned_at.is_(None))).scalars().all()
+    ws2 = wb.create_sheet("Outils empruntés")
+    ws2.append(["Transaction", "Article", "Pris par", "Date de sortie", "Retour prévu"])
+    opens = db.execute(
+        select(Checkout).where(
+            Checkout.returned_at.is_(None), Checkout.item_id.in_(item_ids)
+        )
+    ).scalars().all()
     for c in opens:
         item = db.get(InventoryItem, c.item_id)
         ws2.append(
@@ -90,8 +108,8 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
             ]
         )
 
-    ws3 = wb.create_sheet("Recent Movements")
-    ws3.append(["When", "Type", "Item", "Qty", "Actor", "Reason", "TxId"])
+    ws3 = wb.create_sheet("Mouvements récents")
+    ws3.append(["Date", "Type", "Article", "Quantité", "Utilisateur", "Motif", "Transaction"])
     moves = (
         db.execute(select(Movement).order_by(Movement.created_at.desc()).limit(500)).scalars().all()
     )
@@ -111,7 +129,7 @@ def export_inventory_xlsx(db: Session = Depends(get_db), _user: User = Depends(r
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
-    filename = f"inventory-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.xlsx"
+    filename = f"stock-kia-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.xlsx"
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

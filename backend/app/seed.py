@@ -7,9 +7,14 @@ from app.models import AuthKind, InventoryItem, ItemCategory, User, UserRole
 log = logging.getLogger(__name__)
 USERS = (("Management", UserRole.management, "ETS_ADMIN_PIN", "Admin"),
          ("Majdi", UserRole.maintenance, "ETS_STOREKEEPER_PIN", "Storekeeper"))
-ITEMS = [("KIA-OIL-FILTER","KIA Oil Filter",ItemCategory.station_parts,12,4),
-         ("KIA-AIR-FILTER","KIA Air Filter",ItemCategory.station_parts,8,3),
-         ("TOOL-TORQUE-WRENCH","Torque Wrench",ItemCategory.tools,3,1)]
+ITEMS = [("KIA-OIL-FILTER","Filtre à huile KIA",ItemCategory.station_parts,12,4),
+         ("KIA-AIR-FILTER","Filtre à air KIA",ItemCategory.station_parts,8,3),
+         ("TOOL-TORQUE-WRENCH","Clé dynamométrique",ItemCategory.tools,3,1)]
+ITEM_RENAMES = {
+    "KIA Oil Filter": "Filtre à huile KIA",
+    "KIA Air Filter": "Filtre à air KIA",
+    "Torque Wrench": "Clé dynamométrique",
+}
 
 def seed_if_empty(db: Session):
     existing_users = db.execute(select(User)).scalars().all()
@@ -38,4 +43,8 @@ def seed_if_empty(db: Session):
     if not db.execute(select(InventoryItem).limit(1)).scalar_one_or_none():
         for sku, name, category, qty, minimum in ITEMS:
             db.add(InventoryItem(sku=sku, name=name, category=category, qty_on_hand=qty, reorder_min=minimum, barcode=sku))
+    else:
+        for item in db.execute(select(InventoryItem)).scalars().all():
+            if item.name in ITEM_RENAMES:
+                item.name = ITEM_RENAMES[item.name]
     db.commit()

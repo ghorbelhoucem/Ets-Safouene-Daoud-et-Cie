@@ -46,8 +46,7 @@ def check_and_notify_purchase_alerts(db: Session) -> None:
     triggers a fresh alert instead of staying silent forever).
     """
     settings = get_settings()
-    # SOPs are deliberately excluded — no reorder-point/low-stock concept
-    # applies to them, only Tools and Station Parts.
+    # Les anciennes entrées SOP sont exclues du stock automobile actif.
     items = db.execute(
         select(InventoryItem).where(InventoryItem.category != ItemCategory.sops)
     ).scalars().all()
@@ -61,6 +60,6 @@ def check_and_notify_purchase_alerts(db: Session) -> None:
             it.needs_purchase_alerted = False
 
     if newly_low and settings.slack_purchase_webhook_url:
-        lines = [f"• {it.name} — {it.qty_on_hand} left (reorder point: {it.reorder_min})" for it in newly_low]
-        text = "🛒 *Purchase List update — new item(s) need restocking:*\n" + "\n".join(lines)
+        lines = [f"• {it.name} — {it.qty_on_hand} restant(s) (seuil : {it.reorder_min})" for it in newly_low]
+        text = "🛒 *Stock KIA — nouveaux articles à réapprovisionner :*\n" + "\n".join(lines)
         _post_to_slack(settings.slack_purchase_webhook_url, text)

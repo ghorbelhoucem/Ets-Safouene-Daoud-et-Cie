@@ -179,16 +179,16 @@
 <script src="./renderer.js"></script>
 <script>
 (function(){
-  const API_BASE = (window.SUPPLY_CONFIG && window.SUPPLY_CONFIG.apiBaseUrl) || '/api';
-  const apiClient = window.SupplyApi.createApiClient(API_BASE, { timeoutMs: 9000, retries: 2 });
+  const API_BASE = (window.ETS_CONFIG && window.ETS_CONFIG.apiBaseUrl) || '/api';
+  const apiClient = window.EtsApi.createApiClient(API_BASE, { timeoutMs: 9000, retries: 2 });
   let authToken = null;
   let pendingPin = null;
-  const domain = window.SupplyDomain;
-  const { upgradeInteractiveElements, setButtonBusy } = window.SupplyUi;
-  const machine = window.SupplyMachine.createSupplyMachine();
-  const store = window.SupplyStore.createStore(machine, { current: 'idle' });
+  const domain = window.EtsDomain;
+  const { upgradeInteractiveElements, setButtonBusy } = window.EtsUi;
+  const machine = window.EtsMachine.createSupplyMachine();
+  const store = window.EtsStore.createStore(machine, { current: 'idle' });
 
-  const ICONS = { 'Tools': '🧰', 'Station Parts': '🔌', 'SOPs': '📋' };
+  const ICONS = { 'Tools': '🧰', 'Station Parts': '🚗' };
 
   const ROLES = {
     management: { label: 'Management', sub: 'Administration et rapports', icon: '📋', kind: 'pin', loginRoleKey: 'management' },
@@ -202,19 +202,14 @@
   const ROOM_CATEGORIES = {
     storage: ['Tools', 'Station Parts'],
   };
-  const ROOM_LABELS = { storage: 'Storage Room' };
+  const ROOM_LABELS = { storage: 'Stock automobile' };
   function roomCategories(){ return ROOM_CATEGORIES[selectedRoom] || ROOM_CATEGORIES.storage; }
   function inRoom(reference){ return roomCategories().includes(reference); }
 
-  // Storage Room: Maintenance/Management/Devs only. SOP Room additionally
+  // Profils actifs du stock automobile.
   // allows Supervisor. Intentionally different allow-lists per room.
   function canManageCurrentRoom(){
-    if(!currentPerson) return false;
-    const role = currentPerson.role;
-    if(selectedRoom === 'sop'){
-      return role === 'Supervisor' || role === 'Management' || role === 'Maintenance' || role === 'Devs';
-    }
-    return role === 'Maintenance' || role === 'Management' || role === 'Devs';
+    return Boolean(currentPerson && currentPerson.role === 'Management');
   }
   let pendingRole = null;
   let pendingName = null;
@@ -338,7 +333,7 @@
     });
 
     if(changed){
-      sessionRestoreNotice = 'Welcome back — some items in your lists were adjusted since stock may have changed while you were away.';
+      sessionRestoreNotice = 'Bienvenue — certaines quantités ont été ajustées selon l’état actuel du stock.';
     }
   }
 
@@ -414,12 +409,14 @@
 
   function iconForRef(reference){ return ICONS[reference] || '📦'; }
 
-  const ITEM_ICON_EXACT = { 'pc': '🖥️' };
+  const ITEM_ICON_EXACT = {};
   const ITEM_ICON_KEYWORDS = [
-    ['camera','📷'], ['monitor','🖥️'], ['screen','🖥️'], ['keyboard','⌨️'], ['mouse','🖱️'],
-    ['antenna','📡'], ['wifi','📡'], ['adapter','🔌'], ['cable','🔌'], ['power','⚡'],
-    ['socket','🔌'], ['light','💡'], ['gripper','🦾'], ['arm','🦾'], ['box','📦'],
-    ['screw','🔩'], ['zip tie','🔗'], ['button','🛑'], ['touchpad','🔌']
+    ['filtre','🛢️'], ['filter','🛢️'], ['huile','🛢️'], ['oil','🛢️'],
+    ['frein','🛑'], ['brake','🛑'], ['bougie','⚡'], ['spark','⚡'],
+    ['batterie','🔋'], ['battery','🔋'], ['pneu','🛞'], ['tire','🛞'],
+    ['courroie','⚙️'], ['belt','⚙️'], ['ampoule','💡'], ['bulb','💡'],
+    ['clé','🔧'], ['wrench','🔧'], ['tournevis','🪛'], ['screwdriver','🪛'],
+    ['cric','🏗️'], ['jack','🏗️'], ['diagnostic','🖥️'], ['scanner','🖥️']
   ];
 
   function iconForItem(itemName){
@@ -436,34 +433,7 @@
   // Real photos for items we have pictures of — everything else falls back
   // to the emoji icon above. Put the actual image files in an "images/"
   // folder next to index.html on GitHub for these to show up.
-  const PHOTO_MAP = {
-    'Mouse': 'images/mouse.jpg',
-    'Wrist Camera Cable': 'images/wrist_camera_cable.jpg',
-    'Environmental Camera Cable': 'images/environmental_camera_cable.jpg',
-    'USB-C Cable (Head Camera)': 'images/usb_c_cable_head_camera.jpg',
-    'Type C-C Cable': 'images/type_c_c_cable.jpg',
-    'Ethernet Cable 0.5M': 'images/ethernet_cable.jpg',
-    'Ethernet Cable 1M': 'images/ethernet_cable.jpg',
-    'Ethernet Cable 2M': 'images/ethernet_cable.jpg',
-    'Ethernet Cable 3M': 'images/ethernet_cable.jpg',
-    'Ethernet Cable 5M': 'images/ethernet_cable.jpg',
-    'Ethernet Cable 10M': 'images/ethernet_cable.jpg',
-    'Arm Power Cable': 'images/arm_power_cable.jpg',
-    'Station Monitor Touchpad Cable': 'images/touchpad_cable.jpg',
-    'DP Monitor Cable': 'images/dp_monitor_cable.jpg',
-    'Keyboard': 'images/keyboard.jpg',
-    'Gripper Power Supply': 'images/power_supply.jpg',
-    'Switch Power Supply': 'images/power_supply.jpg',
-    'Type C to Ethernet': 'images/type_c_to_ethernet.jpg',
-    'Power Cable (PC/Monitor)': 'images/power_cable_pc_monitor.jpg',
-    'HDMI Cable': 'images/hdmi_cable.jpg',
-    'Ethernet Adapter': 'images/ethernet_adapter.jpg',
-    'Emergency Button': 'images/emergency_button.jpg',
-    'Space Mouse': 'images/space_mouse.jpg',
-    'Wifi Antenna': 'images/wifi_antenna.jpg',
-    'USB Hub': 'images/usb_hub.jpg',
-    'Power Socket': 'images/power_socket.jpg'
-  };
+  const PHOTO_MAP = {};
 
   // Renders a small photo thumbnail if we have one for this item, otherwise
   // falls back to the emoji icon — used everywhere an item is shown.
@@ -542,6 +512,7 @@
     const inReport = screen === 'report';
     btn.textContent = inReport ? '← Fermer le rapport' : 'Rapport de gestion';
     btn.classList.toggle('active', inReport);
+    btn.style.display = currentPerson && currentPerson.role === 'Management' ? '' : 'none';
   }
 
   function updateSignOutBtn(){
@@ -603,7 +574,7 @@
       }
       if(!canManageCurrentRoom()){
         const allowedRoles = selectedRoom === 'sop' ? 'Supervisor, Maintenance, Management, or Devs' : 'Maintenance, Management, or Devs';
-        loadError = `Manager Report requires a ${allowedRoles} sign-in.`;
+        loadError = `Le rapport de gestion nécessite une connexion ${allowedRoles}.`;
         renderStage();
         updateStatusDot();
         return;
@@ -684,13 +655,13 @@
     }
     stage.innerHTML = banner + logoutNotice + `
       <div class="reader-wrap" style="padding-top:6px;">
-        <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Storage Room</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Stock automobile KIA</div>
         <div class="hint" style="margin-top:0;margin-bottom:24px;">Tap to continue</div>
         <div class="menu-grid" style="max-width:280px;grid-template-columns:1fr;">
           <div class="menu-card" data-room="storage">
             <div class="big">📦</div>
-            <div class="label">Storage Room</div>
-            <div class="sub">Tools &amp; Station Parts</div>
+            <div class="label">Stock automobile</div>
+            <div class="sub">Outillage et pièces de rechange</div>
           </div>
         </div>
       </div>
@@ -927,7 +898,7 @@
     stage.innerHTML = banner + `
       <span class="back-link" id="back">&larr; Retour</span>
       <div class="reader-wrap" style="padding-top:6px;">
-        <div class="hint" style="margin-top:0;margin-bottom:18px;">${role.icon} Operator ${esc(id)} — enter your password</div>
+        <div class="hint" style="margin-top:0;margin-bottom:18px;">${role.icon} Opérateur ${esc(id)} — saisissez votre mot de passe</div>
         <div class="slot" style="margin-top:0;">
           <input id="opPasswordInput" type="password" placeholder="PASSWORD" autocomplete="off" />
         </div>
@@ -946,7 +917,7 @@
         password: entered
       });
       if(!result || !result.ok || !result.token){
-        operatorPasswordError = (result && result.error) || 'Incorrect password, try again.';
+        operatorPasswordError = (result && result.error) || 'Mot de passe incorrect. Réessayez.';
         renderStage();
         return;
       }
@@ -1133,11 +1104,11 @@
     const items = q ? allItems.filter(it=>it.item.toLowerCase().includes(q)) : allItems;
     const selected = restockSelectedItem;
     const isNewItem = selected === NEW_ITEM_SENTINEL;
-    const catNoun = restockCategory === 'Tools' ? 'tool' : (restockCategory === 'SOPs' ? 'SOP' : 'item');
-    const newItemLabel = restockCategory === 'Tools' ? '➕ Add New Tool' : (restockCategory === 'SOPs' ? `➕ Add New ${restockSopFilter||'SOP'} SOP` : '➕ Add New Item');
+    const catNoun = restockCategory === 'Tools' ? 'outil' : (restockCategory === 'SOPs' ? 'SOP' : 'article');
+    const newItemLabel = restockCategory === 'Tools' ? '➕ Ajouter un nouvel outil' : (restockCategory === 'SOPs' ? `➕ Ajouter un SOP ${restockSopFilter||''}` : '➕ Ajouter un nouvel article');
     const headerText = restockCategory === 'SOPs' && restockSopFilter
       ? `Which ${restockSopFilter} SOP got restocked?`
-      : 'Which item got restocked?';
+      : 'Quel article a été réapprovisionné ?';
     stage.innerHTML = banner + `
       <span class="back-link" id="back">&larr; Retour</span>
       <div class="greet" style="margin-bottom:10px;"><div class="name" style="font-size:18px;">${esc(headerText)}</div></div>
@@ -1164,7 +1135,7 @@
       <div class="form-row" id="restockForm" style="display:${selected?'block':'none'}">
         ${isNewItem ? `
           <label>Nom du nouvel article</label>
-          <input type="text" id="restockNewNameInput" placeholder="Ex. Imprimante d’étiquettes" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(restockNewItemName)}" />
+          <input type="text" id="restockNewNameInput" placeholder="Ex. Cric hydraulique" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(restockNewItemName)}" />
         ` : ''}
         <label>Combien souhaitez-vous ajouter ?</label>
         ${qtyStepperHTML('restockQtyInput', restockQty)}
@@ -1221,7 +1192,7 @@
           itemName = document.getElementById('restockNewNameInput').value.trim();
           if(!itemName){ restockError='Saisissez le nom du nouvel article.'; renderStage(); return; }
           const dupe = Object.values(inventoryMap).find(it=>it.item.toLowerCase() === itemName.toLowerCase());
-          if(dupe){ restockError = `"${itemName}" already exists — select it from the list above instead.`; renderStage(); return; }
+          if(dupe){ restockError = `« ${itemName} » existe déjà — sélectionnez-le dans la liste.`; renderStage(); return; }
         }
         const qty = parseInt(document.getElementById('restockQtyInput').value,10);
         if(!qty || qty < 1){ restockError='Saisissez une quantité d’au moins 1.'; renderStage(); return; }
@@ -1300,7 +1271,7 @@
             item: entry.itemName, qty: entry.qty,
             category: entry.isNewItem ? entry.category : undefined,
             sop_status: entry.sopStatus || undefined,
-            reason: entry.isNewItem ? 'New item added via kiosk' : undefined
+            reason: entry.isNewItem ? 'Nouvel article ajouté depuis la borne' : undefined
           });
           if(result.ok){
             succeeded.push(entry);
@@ -1318,7 +1289,7 @@
           return;
         }
         const detailLines = succeeded.map(b=>`${b.qty} × ${b.itemName}`).join(', ');
-        confirmInfo = { icon:'📥', msg: `${succeeded.length} item(s) restocked`, detail: detailLines };
+        confirmInfo = { icon:'📥', msg: `${succeeded.length} article(s) réapprovisionné(s)`, detail: detailLines };
         screen = 'confirm';
         renderStage();
       };
@@ -1339,9 +1310,9 @@
       ` : `
         <div class="form-row" style="margin-top:0;">
           <label>Nom de la pièce</label>
-          <input type="text" id="warrantyPartInput" placeholder="Ex. Bras Franka" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(warrantyPartName)}" />
+          <input type="text" id="warrantyPartInput" placeholder="Ex. Alternateur KIA" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(warrantyPartName)}" />
           <label>Numéro de série</label>
-          <input type="text" id="warrantySerialInput" placeholder="e.g. FR3-2024-00871" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(warrantySerialNumber)}" />
+          <input type="text" id="warrantySerialInput" placeholder="Ex. KIA-2026-00871" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(warrantySerialNumber)}" />
           <label>Problème</label>
           <textarea id="warrantyIssueInput" placeholder="Décrivez le problème…" style="font-family:'Inter',sans-serif;letter-spacing:normal;width:100%;min-height:100px;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;resize:vertical;">${esc(warrantyIssue)}</textarea>
           ${warrantyError ? `<div class="error-msg">${esc(warrantyError)}</div>` : ''}
@@ -1371,7 +1342,7 @@
         const issue = issueInput.value.trim();
         if(!partName){ warrantyError = 'Saisissez le nom de la pièce.'; renderStage(); return; }
         if(!serialNumber){ warrantyError = 'Saisissez le numéro de série.'; renderStage(); return; }
-        if(!issue){ warrantyError = 'Describe the issue.'; renderStage(); return; }
+        if(!issue){ warrantyError = 'Décrivez le problème constaté.'; renderStage(); return; }
         const btn = document.getElementById('warrantySubmitBtn');
         setButtonBusy(btn, true, 'Submitting...');
         const result = await apiClient.warranty({
@@ -1381,7 +1352,7 @@
           issue: issue,
         });
         if(!result.ok){
-          warrantyError = result.error || 'Something went wrong — check your connection and try again.';
+          warrantyError = result.error || 'Une erreur est survenue. Vérifiez la connexion puis réessayez.';
           renderStage();
           return;
         }
@@ -1510,7 +1481,7 @@
       if(isOther){
         const desc = document.getElementById('otherDescInput').value.trim();
         if(!desc){ takeError = 'Décrivez ce que vous avez pris.'; renderStage(); return; }
-        finalItemName = 'Other: ' + desc;
+        finalItemName = 'Autre : ' + desc;
         qty = parseInt(document.getElementById('qtyInput').value,10) || 1;
         if(qty < 1){ takeError='Saisissez une quantité d’au moins 1.'; renderStage(); return; }
       } else if(takeCategory==='Station Parts'){
@@ -1703,7 +1674,7 @@
           return;
         }
         const detailLines = basket.map(b=>`${b.qty} × ${b.itemName}`).join(', ');
-        confirmInfo = { icon:'✅', msg: `${basket.length} item(s) recorded`, detail: detailLines };
+        confirmInfo = { icon:'✅', msg: `${basket.length} article(s) enregistré(s)`, detail: detailLines };
         basket = [];
         screen = 'confirm';
         renderStage();
@@ -1812,7 +1783,7 @@
         if(isOther){
           const desc = document.getElementById('otherDescInput').value.trim();
           if(!desc){ takeError = 'Décrivez ce que vous avez pris.'; renderStage(); return; }
-          finalItemName = 'Other: ' + desc;
+          finalItemName = 'Autre : ' + desc;
           qty = parseInt(document.getElementById('qtyInput').value,10) || 1;
           if(qty < 1){ takeError='Saisissez une quantité d’au moins 1.'; renderStage(); return; }
         } else if(takeCategory==='Station Parts'){
@@ -1990,7 +1961,7 @@
   function tryHandleReturnScan(text){
     const tx = historyRows.find(h=>h.txId===pendingReturnTx);
     if(!tx){
-      returnScanError = 'Lost track of this item — go back and select it again.';
+      returnScanError = 'Cet article est introuvable. Revenez en arrière et sélectionnez-le à nouveau.';
       renderStage();
       return;
     }
@@ -2005,7 +1976,7 @@
       if(normAlnum.length >= 2 && normAlnum === expectedAlnum) isMatch = true;
     }
     if(!isMatch){
-      returnScanError = `Scanned: "${trimmed}" — doesn't match "${tx.item}". Try again, or use "Retourner sans code QR" below.`;
+      returnScanError = `Code scanné : « ${trimmed} » — il ne correspond pas à « ${tx.item} ». Réessayez ou utilisez « Retourner sans code QR ».`;
       renderStage();
       return;
     }
@@ -2086,7 +2057,7 @@
         const summaryGroups = {};
         returnBasket.forEach(tx=>{ summaryGroups[tx.item] = (summaryGroups[tx.item]||0) + 1; });
         const detailLines = Object.keys(summaryGroups).map(name=> summaryGroups[name]>1 ? `${name} × ${summaryGroups[name]}` : name).join(', ');
-        confirmInfo = { icon:'✅', msg: `${returnBasket.length} item(s) returned`, detail: detailLines };
+        confirmInfo = { icon:'✅', msg: `${returnBasket.length} article(s) retourné(s)`, detail: detailLines };
         returnBasket = [];
         screen = 'confirm';
         renderStage();
@@ -2130,7 +2101,7 @@
     else if(reportTab==='overdue') rows = overdueTx;
     else if(reportTab==='all') rows = allTx;
 
-    const backLabel = '← Back';
+    const backLabel = '← Retour';
     stage.innerHTML = banner + `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
         <span class="back-link" id="reportBack">${backLabel}</span>
@@ -2264,7 +2235,7 @@
           <div class="hint" style="margin-top:0;margin-bottom:16px;">Tous les problèmes sous garantie, du plus récent au plus ancien.</div>
           ${warrantyReports.length ? `
           <table>
-            <thead><tr><th>Signalé</th><th>Par</th><th>Pièce</th><th>Serial #</th><th>Problème</th></tr></thead>
+            <thead><tr><th>Signalé</th><th>Par</th><th>Pièce</th><th>N° de série</th><th>Problème</th></tr></thead>
             <tbody>
               ${warrantyReports.map(w=>`
                 <tr>
@@ -2425,7 +2396,7 @@
     renderStage(); // stay on the scan screen — ready for the next scan immediately
   }
 
-  window.SupplyScanner.attachKeyboardScanner({
+  window.EtsScanner.attachKeyboardScanner({
     maxGapMs: SCAN_MAX_GAP_MS,
     onScan: tryHandleScan
   });
@@ -2434,9 +2405,9 @@
     const restored = loadPersistedSessionEarly(); // must happen before render() — render() itself triggers a draw that would otherwise wipe an unrestored session
     if(!restored) loadPreLoginStateEarly();
     render();
-    renderLoading(document.getElementById('stage'));
-    await refreshRemote();
     if(restored){
+      renderLoading(document.getElementById('stage'));
+      await refreshRemote();
       revalidateRestoredBaskets(); // needs fresh inventory/history data, so only now
       startAutoLogoutTimer();
     }

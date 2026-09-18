@@ -33,5 +33,5 @@
     };
   }
 
-  window.SupplyMachine = { createSupplyMachine };
+  window.EtsMachine = { createSupplyMachine };
 })();

@@ -45,13 +45,13 @@
     const dt = new Date(d);
     if (Number.isNaN(dt.getTime())) return String(d);
     return (
-      dt.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+      dt.toLocaleDateString("fr-FR", { month: "short", day: "numeric" }) +
       " " +
-      dt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      dt.toLocaleTimeString("fr-FR", { hour: "numeric", minute: "2-digit" })
     );
   }
 
-  window.SupplyDomain = {
+  window.EtsDomain = {
     normalizeText,
     normalizeAlnum,
     availableOf,

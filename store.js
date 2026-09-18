@@ -32,5 +32,5 @@
     return { getState, setState, transition, subscribe };
   }
 
-  window.SupplyStore = { createStore };
+  window.EtsStore = { createStore };
 })();

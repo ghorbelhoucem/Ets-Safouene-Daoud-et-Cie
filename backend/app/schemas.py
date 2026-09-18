@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class LoginPinRequest(BaseModel):
     role_key: str
-    pin: str
+    pin: str = Field(..., pattern=r"^\d{4}$")
     name: str | None = None
 
 

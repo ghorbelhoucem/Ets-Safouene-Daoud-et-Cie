@@ -1,23 +1,31 @@
-# Full Architecture Manifest
+# Architecture — ETS Safouene Daoud & Cie
 
-This ETS version intentionally preserves the original project's production layers:
+Application autonome de gestion du stock de pièces et d’outillage automobile KIA.
 
-- FastAPI backend (`backend/app`)
-- PostgreSQL models/database layer
-- auth + role permissions
-- inventory transaction service
-- API routers
-- reporting/export logic
-- optional Sheets sync
-- optional Slack notifications
-- database migration/update scripts
-- backend tests
-- modular frontend (`src`)
-- scanner/state/domain/UI modules
-- Playwright smoke tests
-- CI workflow
-- nginx frontend/proxy
-- Docker Compose
-- backup script
+## Déploiement
 
-The source project was copied into this separate ETS project; the original source was not modified.
+Un conteneur unique sert l’API FastAPI et l’interface web. PostgreSQL conserve les
+utilisateurs, articles, mouvements, emprunts, retours et déclarations de garantie.
+Railway fournit la base et injecte les secrets à l’exécution.
+
+## Composants
+
+- `backend/app` : API, authentification JWT, permissions et logique métier.
+- `index.html` et modules JavaScript : interface tactile responsive en français.
+- `backend/app/services/inventory.py` : retraits, retours, réceptions et ajustements.
+- `backend/app/routers/reports.py` : tableau de bord et export Excel réservés à la direction.
+- `backend/app/services/sheets_sync.py` : miroir Google Sheets facultatif du stock automobile.
+- `backend/app/services/slack_notify.py` : notifications facultatives de mouvements et seuils bas.
+- `kiosk.spec.js` : tests Playwright des parcours principaux.
+
+## Sécurité
+
+Deux profils actifs seulement : `Management` et `Majdi`. Chaque connexion exige un
+PIN à quatre chiffres. Le serveur signe un jeton JWT à durée limitée et recharge
+l’utilisateur depuis la base à chaque requête protégée. Les actions et les auteurs
+des journaux sont dérivés du jeton, jamais des valeurs envoyées par le navigateur.
+Les rapports, réceptions et garanties sont réservés à `Management`.
+
+Les anciennes valeurs techniques de catégorie restent reconnues uniquement pour
+la compatibilité des données PostgreSQL existantes; elles ne constituent pas des
+espaces ou profils visibles dans le produit.

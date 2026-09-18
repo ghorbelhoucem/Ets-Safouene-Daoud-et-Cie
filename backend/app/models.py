@@ -149,12 +149,7 @@ class AuditEvent(Base):
 
 
 class WarrantyReport(Base):
-    """
-    A warranty issue report — deliberately NOT inventory-tracked (no
-    quantity, no checkout/return). Just a log: who reported an issue with
-    which part, and what the issue was. Goes straight to the Storage Room
-    Sheet's own dedicated "Warranty" tab.
-    """
+    """Journal d'un problème de garantie, indépendant des quantités en stock."""
     __tablename__ = "ets_warranty_reports"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -19,7 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def login_pin(body: LoginPinRequest, db: Session = Depends(get_db)):
     role = ROLE_KEY_TO_ENUM.get(body.role_key)
     if not role:
-        raise HTTPException(status_code=400, detail="Unknown role")
+        raise HTTPException(status_code=400, detail="Profil inconnu")
 
     candidates = (
         db.execute(
@@ -89,7 +89,7 @@ def login_pin(body: LoginPinRequest, db: Session = Depends(get_db)):
 def login_operator(body: LoginOperatorRequest, db: Session = Depends(get_db)):
     role = ROLE_KEY_TO_ENUM.get(body.role_key)
     if not role:
-        raise HTTPException(status_code=400, detail="Unknown role")
+        raise HTTPException(status_code=400, detail="Profil inconnu")
 
     # Supervisors and Tele-operators are separate accounts again — an ID must
     # match both the password AND the specific role it was registered under.
@@ -104,14 +104,14 @@ def login_operator(body: LoginOperatorRequest, db: Session = Depends(get_db)):
     if not user or not verify_secret(body.password, user.password_hash):
         audit(db, "auth_failed", detail=f"operator id={body.operator_id}")
         db.commit()
-        return {"ok": False, "error": "Incorrect password, try again.", "code": "BAD_PASSWORD"}
+        return {"ok": False, "error": "Mot de passe incorrect. Réessayez.", "code": "BAD_PASSWORD"}
 
     if user.role != role:
         audit(db, "auth_failed", detail=f"operator id={body.operator_id} wrong role, tried {role.value}")
         db.commit()
         return {
             "ok": False,
-            "error": f"This ID is registered as {user.role.value}, not {role.value}. Try the {user.role.value} option instead.",
+            "error": "Ce compte ne correspond pas au profil sélectionné.",
             "code": "WRONG_ROLE",
         }
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import can_restock_category, get_current_user, require_manager, require_restock_access
+from app.auth import get_current_user, require_manager
 from app.database import get_db
 from app.models import Checkout, InventoryItem, ItemCategory, User, WarrantyReport
 from app.schemas import (
@@ -21,8 +21,11 @@ router = APIRouter(tags=["inventory"])
 
 @router.get("/inventory")
 @router.get("/")
-def get_snapshot(db: Session = Depends(get_db)):
-    """Public read snapshot for kiosk boot / status. Mutations require auth."""
+def get_snapshot(
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Authenticated inventory, activity history, and warranty snapshot."""
     return inv.snapshot(db)
 
 
@@ -38,8 +41,8 @@ def take_batch(
 
     result = inv.take_batch(
         db,
-        person=body.person or user.name,
-        role=body.role or user.role.value,
+        person=user.name,
+        role=user.role.value,
         items=[i.model_dump() for i in body.items],
     )
     if not result.get("ok"):
@@ -49,13 +52,13 @@ def take_batch(
     inv.save_idempotent(db, body.client_request_id, "takeBatch", result)
     db.commit()
     maybe_sync_after_mutation(db)
-    who = body.person or user.name
-    role = body.role or user.role.value
+    who = user.name
+    role = user.role.value
     take_totals = {}
     for i in body.items:
         take_totals[i.item] = take_totals.get(i.item, 0) + i.qty
     items_desc = ", ".join(f"{qty} × {name}" for name, qty in take_totals.items())
-    notify_transaction(f"📤 *{who}* ({role}) took: {items_desc}")
+    notify_transaction(f"📤 *{who}* ({role}) a retiré : {items_desc}")
     check_and_notify_purchase_alerts(db)
     db.commit()
     return result
@@ -71,7 +74,8 @@ def return_batch(
     if existing:
         return existing
 
-    result = inv.return_batch(db, tx_ids=body.txIds, returned_by=body.returnedBy or f"{user.name}/{user.role.value}")
+    actor = f"{user.name}/{user.role.value}"
+    result = inv.return_batch(db, tx_ids=body.txIds, returned_by=actor)
     if not result.get("ok"):
         db.rollback()
         return result
@@ -79,15 +83,15 @@ def return_batch(
     inv.save_idempotent(db, body.client_request_id, "returnBatch", result)
     db.commit()
     maybe_sync_after_mutation(db)
-    returned_by = body.returnedBy or f"{user.name}/{user.role.value}"
+    returned_by = actor
     checkouts = db.execute(select(Checkout).where(Checkout.tx_id.in_(body.txIds))).scalars().all()
     return_totals = {}
     for c in checkouts:
         item = db.get(InventoryItem, c.item_id)
-        name = item.name if item else "unknown item"
+        name = item.name if item else "article inconnu"
         return_totals[name] = return_totals.get(name, 0) + c.qty
     parts = [f"{qty} × {name}" for name, qty in return_totals.items()]
-    notify_transaction(f"📥 *{returned_by}* returned: {', '.join(parts) if parts else 'item(s)'}")
+    notify_transaction(f"📥 *{returned_by}* a retourné : {', '.join(parts) if parts else 'article(s)'}")
     return result
 
 
@@ -95,7 +99,7 @@ def return_batch(
 def receive(
     body: ReceiveRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_manager),
 ):
     existing = inv.get_idempotent(db, body.client_request_id)
     if existing:
@@ -115,11 +119,8 @@ def receive(
     else:
         target_category = None
 
-    # Room-aware permission: SOP items allow Supervisors too; everything
-    # else (Tools/Station Parts) keeps the original stricter allow-list.
-    allowed = can_restock_category(user, target_category) if target_category else can_restock_category(user, ItemCategory.tools)
-    if not allowed:
-        return {"ok": False, "error": "You don't have permission to restock this item.", "code": "FORBIDDEN"}
+    if target_category == ItemCategory.sops:
+        return {"ok": False, "error": "Cette catégorie n'est pas disponible.", "code": "BAD_CATEGORY"}
 
     actor = f"{user.name}/{user.role.value}"
     item_existed_before = existing_item is not None
@@ -130,7 +131,7 @@ def receive(
     inv.save_idempotent(db, body.client_request_id, "receive", result)
     db.commit()
     maybe_sync_after_mutation(db)
-    label = "🆕 new item added" if not item_existed_before else "restocked"
+    label = "🆕 a ajouté un nouvel article" if not item_existed_before else "a réapprovisionné"
     notify_transaction(f"🚚 *{actor}* {label}: +{body.qty} × {body.item}")
     check_and_notify_purchase_alerts(db)
     db.commit()
@@ -155,7 +156,7 @@ def adjust(
     db.commit()
     maybe_sync_after_mutation(db)
     sign = "+" if body.qty_delta >= 0 else ""
-    notify_transaction(f"⚙️ *{actor}* adjusted {body.item}: {sign}{body.qty_delta} (now {result.get('quantity')})")
+    notify_transaction(f"⚙️ *{actor}* a ajusté {body.item} : {sign}{body.qty_delta} (stock : {result.get('quantity')})")
     check_and_notify_purchase_alerts(db)
     db.commit()
     return result
@@ -165,7 +166,7 @@ def adjust(
 def warranty(
     body: WarrantyRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_restock_access),  # Management/Maintenance/Devs only, no Supervisor
+    user: User = Depends(require_manager),
 ):
     existing = inv.get_idempotent(db, body.client_request_id)
     if existing:
@@ -186,6 +187,6 @@ def warranty(
     db.commit()
 
     sheet_result = append_warranty_report(body.part_name, body.serial_number, body.issue, actor, report.created_at)
-    notify_transaction(f"🛡️ *{actor}* reported a warranty issue — {body.part_name} (S/N {body.serial_number}): {body.issue}")
+    notify_transaction(f"🛡️ *{actor}* a signalé une garantie — {body.part_name} (N° {body.serial_number}) : {body.issue}")
 
     return {**result, "sheet": sheet_result}

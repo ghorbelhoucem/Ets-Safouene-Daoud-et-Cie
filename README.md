@@ -1,43 +1,63 @@
-# ETS Safouene Daoud et Cie — Parts & Tools Management
+# ETS Safouene Daoud et Cie — Gestion des pièces automobiles KIA
 
-Production kiosk with a touchscreen frontend, FastAPI API, PostgreSQL, JWT authentication, inventory history, reports, and optional Sheets/Slack integrations.
+Application métier distincte destinée à la gestion du stock de pièces automobiles et des outils d’atelier de l’entreprise ETS Safouene Daoud et Cie.
 
-## Structure
+## Fonctionnalités
 
-- Root HTML/JavaScript files: kiosk frontend
-- `backend/app`: FastAPI application
-- `backend/app/routers`: authentication, inventory and report routes
-- `backend/app/services`: inventory, Sheets and Slack services
-- `docker-compose.yml`: frontend, API and PostgreSQL
-- `nginx.conf`: serves the kiosk and proxies `/api` to FastAPI
+- Connexion par code PIN à 4 chiffres pour les profils **Management** et **Majdi**.
+- Pièces automobiles consommables : sortie immédiate du stock.
+- Outils d’atelier : emprunt, échéance et retour traçable.
+- Réapprovisionnement, alertes de seuil, garantie, historique et rapports de gestion.
+- Interface tactile en français avec lecteur code-barres/QR.
+- API FastAPI, PostgreSQL, jetons JWT et protection des opérations par rôle.
 
-## Required production variables
+## Architecture de production
 
-Configure these on the API service before its first start:
+Railway exécute un seul conteneur applicatif construit avec le `Dockerfile` racine :
+
+- FastAPI sert l’API sous `/api`.
+- FastAPI sert également le frontend statique à la racine `/`.
+- PostgreSQL est un service Railway séparé.
+- Le contrôle de santé est disponible sous `/health`.
+
+Le code serveur utilisé en production se trouve dans `backend/app`. Les fichiers frontend actifs sont `index.html`, `config.js`, `client.js`, `inventory.js`, `machine.js`, `store.js`, `keyboardScanner.js` et `renderer.js`.
+
+## Variables obligatoires
 
 - `DATABASE_URL`
-- `JWT_SECRET` — new random value of at least 32 bytes
-- `ETS_ADMIN_PIN`
-- `ETS_STOREKEEPER_PIN`
-- `ETS_DEVELOPER_PIN`
+- `JWT_SECRET` — valeur aléatoire longue, jamais enregistrée dans Git
+- `ETS_ADMIN_PIN` — code PIN du profil Management
+- `ETS_STOREKEEPER_PIN` — code PIN du profil Majdi
+- `SEED_ON_STARTUP=true`
 
-Never commit real PINs, passwords, webhook URLs, or service-account credentials.
+Variables facultatives : `CORS_ORIGINS`, `LEGACY_WEBAPP_URL`, `SHEET_SYNC_INTERVAL_MINUTES`, `SLACK_TRANSACTIONS_WEBHOOK_URL`, `SLACK_PURCHASE_WEBHOOK_URL`.
 
-## Local start
+## Démarrage local
 
-```bash
-cp .env.example .env
-# Replace all placeholder secrets in .env
-docker compose up -d --build
+Créer un fichier `.env` contenant au minimum :
+
+```env
+POSTGRES_PASSWORD=change-this-password
+JWT_SECRET=change-this-long-random-secret
+ETS_ADMIN_PIN=<code-management-à-4-chiffres>
+ETS_STOREKEEPER_PIN=<code-majdi-à-4-chiffres>
 ```
 
-Open http://localhost:61938.
+Puis lancer :
 
-## Railway
+```bash
+docker compose up --build
+```
 
-Use PostgreSQL plus two application services:
+Ouvrir <http://localhost:61938>.
 
-1. Web: repository root and root `Dockerfile`.
-2. API: root directory `backend` and `backend/Dockerfile`.
+## Vérifications
 
-Name the API service `ets-safouene-api`; nginx proxies to `ets-safouene-api.railway.internal:8000`.
+```bash
+python -m compileall -q backend/app
+npm install
+npm test
+docker compose config
+```
+
+Les identifiants, secrets JWT, webhooks et mots de passe de base de données ne doivent jamais être ajoutés au dépôt.

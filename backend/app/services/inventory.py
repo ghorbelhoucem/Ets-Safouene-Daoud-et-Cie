@@ -14,11 +14,20 @@ def availability_label(db: Session, item: InventoryItem) -> str:
     available = available_qty(db, item)
     if available <= 0: return "X"
     if available == item.qty_on_hand: return "✓"
-    return f"{item.qty_on_hand - available} part(s) missing"
+    return f"{item.qty_on_hand - available} outil(s) emprunté(s)"
 
 def snapshot(db: Session) -> dict:
-    items = db.execute(select(InventoryItem).order_by(InventoryItem.name)).scalars().all()
-    checkouts = db.execute(select(Checkout).order_by(Checkout.taken_at.desc())).scalars().all()
+    items = db.execute(
+        select(InventoryItem)
+        .where(InventoryItem.category != ItemCategory.sops)
+        .order_by(InventoryItem.name)
+    ).scalars().all()
+    item_ids = {item.id for item in items}
+    checkouts = [
+        checkout
+        for checkout in db.execute(select(Checkout).order_by(Checkout.taken_at.desc())).scalars().all()
+        if checkout.item_id in item_ids
+    ]
     warranties = db.execute(select(WarrantyReport).order_by(WarrantyReport.created_at.desc())).scalars().all()
     inventory = [{"reference": x.category.value, "item": x.name, "quantity": x.qty_on_hand,
                   "availability": availability_label(db, x), "barcode": x.barcode,
@@ -47,9 +56,11 @@ def take_batch(db: Session, person: str, role: str, items: list[dict]) -> dict:
     for entry in items:
         item = db.execute(select(InventoryItem).where(InventoryItem.name == entry["item"])).scalar_one_or_none()
         qty = int(entry.get("qty", 1))
-        if not item or qty < 1: return {"ok": False, "error": "Invalid item.", "code": "BAD_ITEM"}
+        if not item or item.category == ItemCategory.sops or qty < 1:
+            return {"ok": False, "error": "Article invalide.", "code": "BAD_ITEM"}
         available = available_qty(db, item)
-        if available < qty: return {"ok": False, "error": f"Not enough {item.name} available.", "code": "OUT_OF_STOCK", "available": available}
+        if available < qty:
+            return {"ok": False, "error": f"Stock insuffisant pour {item.name}.", "code": "OUT_OF_STOCK", "available": available}
         prepared.append((item, qty, entry.get("expectedReturn")))
     ids = []
     for item, qty, expected in prepared:
@@ -70,7 +81,8 @@ def take_batch(db: Session, person: str, role: str, items: list[dict]) -> dict:
 def return_batch(db: Session, tx_ids: list[str], returned_by: str) -> dict:
     rows = db.execute(select(Checkout).where(Checkout.tx_id.in_(tx_ids))).scalars().all()
     found = {x.tx_id: x for x in rows}
-    if any(x not in found for x in tx_ids): return {"ok": False, "error": "Transaction not found.", "code": "NOT_FOUND"}
+    if any(x not in found for x in tx_ids):
+        return {"ok": False, "error": "Transaction introuvable.", "code": "NOT_FOUND"}
     for tx in tx_ids:
         row = found[tx]
         if row.returned_at: continue
@@ -82,9 +94,11 @@ def return_batch(db: Session, tx_ids: list[str], returned_by: str) -> dict:
 def receive_stock(db: Session, name: str, qty: int, actor: str, reason: str | None, category: str | None = None, sop_status: str | None = None) -> dict:
     item = db.execute(select(InventoryItem).where(InventoryItem.name == name)).scalar_one_or_none()
     if item is None:
-        if not category: return {"ok": False, "error": "Category required.", "code": "CATEGORY_REQUIRED"}
+        if not category: return {"ok": False, "error": "Catégorie obligatoire.", "code": "CATEGORY_REQUIRED"}
         try: kind = ItemCategory(category)
-        except ValueError: return {"ok": False, "error": "Invalid category.", "code": "BAD_CATEGORY"}
+        except ValueError: return {"ok": False, "error": "Catégorie invalide.", "code": "BAD_CATEGORY"}
+        if kind == ItemCategory.sops:
+            return {"ok": False, "error": "Catégorie invalide.", "code": "BAD_CATEGORY"}
         item = InventoryItem(sku=f"ITEM-{uuid.uuid4().hex[:10].upper()}", name=name, category=kind, qty_on_hand=0)
         db.add(item); db.flush()
     item.qty_on_hand += qty
@@ -94,8 +108,10 @@ def receive_stock(db: Session, name: str, qty: int, actor: str, reason: str | No
 
 def adjust_stock(db: Session, name: str, delta: int, actor: str, reason: str) -> dict:
     item = db.execute(select(InventoryItem).where(InventoryItem.name == name)).scalar_one_or_none()
-    if not item: return {"ok": False, "error": "Item not found.", "code": "NOT_FOUND"}
-    if item.qty_on_hand + delta < 0: return {"ok": False, "error": "Stock cannot be negative.", "code": "NEGATIVE_STOCK"}
+    if not item or item.category == ItemCategory.sops:
+        return {"ok": False, "error": "Article introuvable.", "code": "NOT_FOUND"}
+    if item.qty_on_hand + delta < 0:
+        return {"ok": False, "error": "Le stock ne peut pas être négatif.", "code": "NEGATIVE_STOCK"}
     item.qty_on_hand += delta
     db.add(Movement(movement_type=MovementType.adjust, item_id=item.id, item_name=item.name, qty=delta, actor=actor, reason=reason))
     return {"ok": True, "quantity": item.qty_on_hand}

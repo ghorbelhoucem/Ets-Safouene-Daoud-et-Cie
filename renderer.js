@@ -8,7 +8,7 @@
     if (!btn) return;
     if (busy) {
       btn.dataset.originalLabel = btn.textContent;
-      btn.textContent = busyLabel || "Loading...";
+      btn.textContent = busyLabel || "Chargement…";
       btn.disabled = true;
       btn.setAttribute("aria-busy", "true");
     } else {
@@ -40,5 +40,5 @@
     root.querySelectorAll(".banner-error").forEach((node) => node.setAttribute("role", "status"));
   }
 
-  window.SupplyUi = { patchHtml, setButtonBusy, upgradeInteractiveElements };
+  window.EtsUi = { patchHtml, setButtonBusy, upgradeInteractiveElements };
 })();
