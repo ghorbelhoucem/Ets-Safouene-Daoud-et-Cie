@@ -89,10 +89,18 @@ def test_only_management_can_receive_stock(client: TestClient):
             "item": "Filtre à huile KIA",
             "qty": 5,
             "category": "Station Parts",
+            "serial_number": "KIA-FILTER-SN-9001",
         },
     )
     assert response.status_code == 200
     assert response.json()["ok"] is True
+
+    snapshot = client.get(
+        "/api/inventory", headers={"Authorization": f"Bearer {management_token}"}
+    )
+    assert snapshot.status_code == 200
+    item = next(row for row in snapshot.json()["inventory"] if row["item"] == "Filtre à huile KIA")
+    assert item["serial_number"] == "KIA-FILTER-SN-9001"
 
 
 def test_hidden_sop_category_cannot_be_created(client: TestClient):

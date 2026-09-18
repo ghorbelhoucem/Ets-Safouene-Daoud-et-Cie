@@ -526,6 +526,16 @@
   }
 
   function availableOf(itemName){ return domain.availableOf(itemName, inventoryMap, historyRows); }
+  function matchesInventorySearch(item, query){
+    const q = String(query || '').trim().toLowerCase();
+    if(!q) return true;
+    return [item.item, item.serial_number, item.barcode]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(q));
+  }
+  function serialMeta(item){
+    return item && item.serial_number ? `N° de série : ${esc(item.serial_number)}` : '';
+  }
   function openCheckoutsFor(personCode){ return domain.openCheckoutsFor(personCode, inventoryMap, historyRows); }
   function allOpenToolCheckouts(){ return domain.allOpenToolCheckouts(inventoryMap, historyRows); }
   function isOverdue(h){ return domain.isOverdue(h); }
@@ -1101,7 +1111,7 @@
       return true;
     });
     const q = restockSearchQuery.trim().toLowerCase();
-    const items = q ? allItems.filter(it=>it.item.toLowerCase().includes(q)) : allItems;
+    const items = allItems.filter(it=>matchesInventorySearch(it, q));
     const selected = restockSelectedItem;
     const isNewItem = selected === NEW_ITEM_SENTINEL;
     const catNoun = restockCategory === 'Tools' ? 'outil' : (restockCategory === 'SOPs' ? 'SOP' : 'article');
@@ -1127,7 +1137,7 @@
           <div class="item-row ${selected===it.item?'selected':''}" data-name="${esc(it.item)}">
             <div>
               <div class="item-name" style="margin-top:5px;">${itemThumbHTML(it.item, 56, 36)} ${esc(it.item)}</div>
-              <div class="item-meta">Stock actuel : ${it.quantity}</div>
+              <div class="item-meta">Stock actuel : ${it.quantity}${it.serial_number ? ` · ${serialMeta(it)}` : ''}</div>
             </div>
           </div>
         `).join('') : `<div class="empty-note">Aucun article correspondant.</div>`}
@@ -1136,6 +1146,8 @@
         ${isNewItem ? `
           <label>Nom du nouvel article</label>
           <input type="text" id="restockNewNameInput" placeholder="Ex. Cric hydraulique" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(restockNewItemName)}" />
+          <label>Numéro de série</label>
+          <input type="text" id="restockNewSerialInput" placeholder="Ex. KIA-SN-2026-001" style="font-family:'IBM Plex Mono',monospace;" value="${esc(restockNewSerialNumber)}" />
         ` : ''}
         <label>Combien souhaitez-vous ajouter ?</label>
         ${qtyStepperHTML('restockQtyInput', restockQty)}
@@ -1147,7 +1159,7 @@
           <h3>Dans votre liste de réapprovisionnement (${restockBasket.length})</h3>
           ${restockBasket.map(b=>`
             <div class="open-row">
-              <span>${itemThumbHTML(b.itemName, 26)} ${esc(b.itemName)} × ${b.qty}${b.sopStatus?` <span class="tag">${esc(b.sopStatus)}</span>`:''}</span>
+              <span>${itemThumbHTML(b.itemName, 26)} ${esc(b.itemName)} × ${b.qty}${b.serialNumber?` <span class="tag">S/N ${esc(b.serialNumber)}</span>`:''}</span>
               <span class="due">${b.category}</span>
             </div>`).join('')}
         </div>
@@ -1170,7 +1182,7 @@
       row.onclick = ()=>{
         restockSelectedItem = row.getAttribute('data-name');
         restockError = null;
-        if(restockSelectedItem !== NEW_ITEM_SENTINEL) restockNewItemName = '';
+        if(restockSelectedItem !== NEW_ITEM_SENTINEL){ restockNewItemName = ''; restockNewSerialNumber = ''; }
         renderStage();
         setTimeout(()=>{
           const el = document.getElementById(restockSelectedItem===NEW_ITEM_SENTINEL ? 'restockNewNameInput' : 'restockQtyInput');
@@ -1181,6 +1193,8 @@
     if(isNewItem){
       const nameInput = document.getElementById('restockNewNameInput');
       nameInput.oninput = ()=>{ restockNewItemName = nameInput.value; };
+      const serialInput = document.getElementById('restockNewSerialInput');
+      serialInput.oninput = ()=>{ restockNewSerialNumber = serialInput.value; };
     }
     if(restockBasket.length){
       document.getElementById('restockReviewBtn').onclick = ()=>{ screen='restockBasketReview'; renderStage(); };
@@ -1188,9 +1202,12 @@
     if(selected){
       document.getElementById('restockConfirmBtn').onclick = ()=>{
         let itemName = selected;
+        let serialNumber = '';
         if(isNewItem){
           itemName = document.getElementById('restockNewNameInput').value.trim();
+          serialNumber = document.getElementById('restockNewSerialInput').value.trim();
           if(!itemName){ restockError='Saisissez le nom du nouvel article.'; renderStage(); return; }
+          if(!serialNumber){ restockError='Saisissez le numéro de série.'; renderStage(); return; }
           const dupe = Object.values(inventoryMap).find(it=>it.item.toLowerCase() === itemName.toLowerCase());
           if(dupe){ restockError = `« ${itemName} » existe déjà — sélectionnez-le dans la liste.`; renderStage(); return; }
         }
@@ -1203,11 +1220,13 @@
         }else{
           restockBasket.push({
             itemName, qty, category: restockCategory, isNewItem: isNewItem,
+            serialNumber: serialNumber,
             sopStatus: (restockCategory === 'SOPs') ? restockSopFilter : null
           });
         }
         restockSelectedItem = null;
         restockNewItemName = '';
+        restockNewSerialNumber = '';
         restockQty = 1;
         restockError = null;
         renderStage();
@@ -1223,7 +1242,7 @@
         <tbody>
           ${restockBasket.length ? restockBasket.map((b,idx)=>`
             <tr>
-              <td>${itemThumbHTML(b.itemName, 28)} ${esc(b.itemName)}${b.isNewItem ? ' <span class="pill open">nouveau</span>' : ''}</td>
+              <td>${itemThumbHTML(b.itemName, 28)} ${esc(b.itemName)}${b.isNewItem ? ' <span class="pill open">nouveau</span>' : ''}${b.serialNumber ? `<div class="item-meta">N° de série : ${esc(b.serialNumber)}</div>` : ''}</td>
               <td><div class="qty-stepper"><button type="button" class="qty-btn" data-qty-target="restockQtyRow_${idx}" data-qty-dir="-1">−</button><input type="number" min="1" value="${b.qty}" id="restockQtyRow_${idx}" data-restock-qty-for="${idx}" class="qty-stepper-input" style="width:56px;" /><button type="button" class="qty-btn" data-qty-target="restockQtyRow_${idx}" data-qty-dir="1">+</button></div></td>
               <td>${esc(b.category)}</td>
               <td><button class="btn-ghost" data-remove="${idx}" style="padding:4px 10px;font-size:10.5px;">Supprimer</button></td>
@@ -1270,6 +1289,7 @@
             action:'restock', person: currentPerson.name, role: currentPerson.role,
             item: entry.itemName, qty: entry.qty,
             category: entry.isNewItem ? entry.category : undefined,
+            serial_number: entry.serialNumber || undefined,
             sop_status: entry.sopStatus || undefined,
             reason: entry.isNewItem ? 'Nouvel article ajouté depuis la borne' : undefined
           });
@@ -1692,7 +1712,7 @@
       return true;
     });
     const q = takeSearchQuery.trim().toLowerCase();
-    const items = q ? allItems.filter(it=>it.item.toLowerCase().includes(q)) : allItems;
+    const items = allItems.filter(it=>matchesInventorySearch(it, q));
     const isOther = selected === OTHER_SENTINEL;
     let scanBanner = '';
     if(scanNotice){
@@ -1715,7 +1735,7 @@
               ${itemThumbHTML(it.item, 56, 36)}
               <div style="min-width:0;">
                 <div class="item-name">${esc(it.item)}</div>
-                <div class="item-meta">${it.reference==='Tools' ? 'Emprunt avec retour' : 'Usage unique'}</div>
+                <div class="item-meta">${it.reference==='Tools' ? 'Emprunt avec retour' : 'Usage unique'}${it.serial_number ? ` · ${serialMeta(it)}` : ''}</div>
               </div>
             </div>
             <div class="stock ${low?'low':''}" style="flex-shrink:0;padding-left:8px;">${avail} disponible(s)</div>
@@ -1808,6 +1828,7 @@
   let restockSelectedItem = null;
   const NEW_ITEM_SENTINEL = '__NEW_ITEM__';
   let restockNewItemName = '';
+  let restockNewSerialNumber = '';
   let restockSopFilter = null; // 'Active' | 'Non-Active' — chosen at the category-picker step in SOP Room
   let warrantyError = null;
   let warrantyShowForm = false;
@@ -2128,12 +2149,12 @@
           <div style="font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);margin:0 0 8px;">Outils</div>
           ${(()=>{
             const q = reportStockSearchQuery.trim().toLowerCase();
-            const filteredTools = q ? toolItems.filter(it=>it.item.toLowerCase().includes(q)) : toolItems;
+            const filteredTools = toolItems.filter(it=>matchesInventorySearch(it, q));
             if(!filteredTools.length) return `<div class="empty-note">${toolItems.length ? 'Aucun outil ne correspond à votre recherche.' : 'Aucun outil.'}</div>`;
             return `<div class="stock-grid">${filteredTools.map(it=>{
               const toolLow = Number(it.quantity) <= Number(it.reorder_min || 5);
               return `<div class="stockbar">
-              <span>${iconForRef('Tools')} ${esc(it.item)}</span>
+              <span>${iconForRef('Tools')} ${esc(it.item)}${it.serial_number ? `<small class="item-meta" style="display:block;">${serialMeta(it)}</small>` : ''}</span>
               <span class="stock ${toolLow || String(it.availability||'').includes('missing') ? 'low':''}">${it.quantity!=null?it.quantity:'—'} en stock · ${esc(it.availability||'—')}</span>
             </div>`;
             }).join('')}</div>`;
@@ -2143,12 +2164,12 @@
           <div style="font-family:'Oswald',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);margin:18px 0 8px;">Pièces de poste</div>
           ${(()=>{
             const q = reportStockSearchQuery.trim().toLowerCase();
-            const filteredParts = q ? partItems.filter(it=>it.item.toLowerCase().includes(q)) : partItems;
+            const filteredParts = partItems.filter(it=>matchesInventorySearch(it, q));
             if(!filteredParts.length) return `<div class="empty-note">${partItems.length ? 'Aucune pièce ne correspond à votre recherche.' : 'Aucune pièce de poste.'}</div>`;
             return `<div class="stock-grid">${filteredParts.map(it=>{
               const low = Number(it.quantity) <= Number(it.reorder_min || 5);
               return `<div class="stockbar">
-                <span>${iconForRef('Station Parts')} ${esc(it.item)}</span>
+                <span>${iconForRef('Station Parts')} ${esc(it.item)}${it.serial_number ? `<small class="item-meta" style="display:block;">${serialMeta(it)}</small>` : ''}</span>
                 <span class="stock ${low?'low':''}">${it.quantity!=null?it.quantity:'—'} restante(s) ${it.availability==='X'?'— RUPTURE':''}</span>
               </div>`;
             }).join('')}</div>`;

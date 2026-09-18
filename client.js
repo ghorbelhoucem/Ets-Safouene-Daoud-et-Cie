@@ -139,6 +139,7 @@
             qty: payload.qty,
             reason: payload.reason || 'restock',
             category: payload.category || null,
+            serial_number: payload.serial_number || null,
             sop_status: payload.sop_status || null,
           },
           retry: false,
@@ -166,6 +167,7 @@
             qty: payload.qty,
             reason: payload.reason || 'restock',
             category: payload.category,
+            serial_number: payload.serial_number,
             sop_status: payload.sop_status,
           });
         }

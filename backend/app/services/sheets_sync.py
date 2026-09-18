@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import AuditEvent, Checkout, InventoryItem, ItemCategory, Movement
+from app.models import AuditEvent, Checkout, InventoryItem, ItemCategory, Movement, WarrantyReport
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,14 @@ def _build_payload_for_categories(db: Session, categories: set) -> dict:
             availability = "X" if it.qty_on_hand <= 0 else "✓"
 
         reference = it.category.value
-        inventory_rows.append([reference, it.name, it.qty_on_hand, availability])
+        inventory_rows.append([
+            reference,
+            it.name,
+            it.serial_number or "",
+            it.barcode or "",
+            it.qty_on_hand,
+            availability,
+        ])
 
     purchase_rows = sorted(
         (
@@ -144,11 +151,20 @@ def _build_payload_for_categories(db: Session, categories: set) -> dict:
     history_rows.sort(key=lambda r: r[0])
     history_rows = _consolidate_history_rows(history_rows)
 
+    warranty_rows = [
+        [_fmt(report.created_at), report.reported_by, report.part_name,
+         report.serial_number, report.issue]
+        for report in db.execute(
+            select(WarrantyReport).order_by(WarrantyReport.created_at.desc())
+        ).scalars().all()
+    ]
+
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "inventory": inventory_rows,
         "history": history_rows,
         "purchase_list": purchase_rows,
+        "warranty": warranty_rows,
     }
 
 
@@ -158,6 +174,7 @@ def _push_to_webapp(webapp_url: str, payload: dict) -> None:
         "inventory": payload["inventory"],
         "history": payload["history"],
         "purchase_list": payload["purchase_list"],
+        "warranty": payload["warranty"],
     }
     resp = httpx.post(webapp_url, json=body, timeout=20.0, follow_redirects=True)
     resp.raise_for_status()

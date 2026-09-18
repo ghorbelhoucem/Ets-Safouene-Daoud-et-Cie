@@ -8,6 +8,8 @@ Application métier distincte destinée à la gestion du stock de pièces automo
 - Pièces automobiles consommables : sortie immédiate du stock.
 - Outils d’atelier : emprunt, échéance et retour traçable.
 - Réapprovisionnement, alertes de seuil, garantie, historique et rapports de gestion.
+- Numéro de série enregistré avec les nouveaux articles et recherche par nom, code-barres ou numéro de série.
+- Miroir Google Sheets facultatif du stock, de l’historique, des achats et des garanties.
 - Interface tactile en français avec lecteur code-barres/QR.
 - API FastAPI, PostgreSQL, jetons JWT et protection des opérations par rôle.
 

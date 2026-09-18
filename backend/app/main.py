@@ -5,6 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 from app.auth import require_manager
 from app.config import get_settings
 from app.database import Base, SessionLocal, engine
@@ -19,10 +20,18 @@ scheduler = BackgroundScheduler()
 def scheduled_sync():
     with SessionLocal() as db: sync_mirror(db)
 
+def ensure_schema_compatibility():
+    """Ajoute les colonnes récentes aux bases existantes sans perdre de données."""
+    columns = {column["name"] for column in inspect(engine).get_columns("ets_inventory_items")}
+    if "serial_number" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE ets_inventory_items ADD COLUMN serial_number VARCHAR(120)"))
+
 @asynccontextmanager
 async def lifespan(_app):
     settings = get_settings()
     Base.metadata.create_all(bind=engine)
+    ensure_schema_compatibility()
     if settings.seed_on_startup:
         with SessionLocal() as db: seed_if_empty(db)
     if settings.legacy_webapp_url.strip():

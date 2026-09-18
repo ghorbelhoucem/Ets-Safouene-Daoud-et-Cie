@@ -31,6 +31,7 @@ def snapshot(db: Session) -> dict:
     warranties = db.execute(select(WarrantyReport).order_by(WarrantyReport.created_at.desc())).scalars().all()
     inventory = [{"reference": x.category.value, "item": x.name, "quantity": x.qty_on_hand,
                   "availability": availability_label(db, x), "barcode": x.barcode,
+                  "serial_number": x.serial_number,
                   "reorder_min": x.reorder_min, "sop_status": x.sop_status} for x in items]
     history = []
     for row in checkouts:
@@ -91,7 +92,9 @@ def return_batch(db: Session, tx_ids: list[str], returned_by: str) -> dict:
         db.add(Movement(movement_type=MovementType.return_, item_id=row.item_id, item_name=item.name if item else "", qty=row.qty, actor=returned_by, related_tx_id=tx))
     return {"ok": True, "returned": len(tx_ids)}
 
-def receive_stock(db: Session, name: str, qty: int, actor: str, reason: str | None, category: str | None = None, sop_status: str | None = None) -> dict:
+def receive_stock(db: Session, name: str, qty: int, actor: str, reason: str | None,
+                  category: str | None = None, sop_status: str | None = None,
+                  serial_number: str | None = None) -> dict:
     item = db.execute(select(InventoryItem).where(InventoryItem.name == name)).scalar_one_or_none()
     if item is None:
         if not category: return {"ok": False, "error": "Catégorie obligatoire.", "code": "CATEGORY_REQUIRED"}
@@ -99,8 +102,16 @@ def receive_stock(db: Session, name: str, qty: int, actor: str, reason: str | No
         except ValueError: return {"ok": False, "error": "Catégorie invalide.", "code": "BAD_CATEGORY"}
         if kind == ItemCategory.sops:
             return {"ok": False, "error": "Catégorie invalide.", "code": "BAD_CATEGORY"}
-        item = InventoryItem(sku=f"ITEM-{uuid.uuid4().hex[:10].upper()}", name=name, category=kind, qty_on_hand=0)
+        item = InventoryItem(
+            sku=f"ITEM-{uuid.uuid4().hex[:10].upper()}",
+            name=name,
+            category=kind,
+            qty_on_hand=0,
+            serial_number=(serial_number or "").strip() or None,
+        )
         db.add(item); db.flush()
+    elif serial_number and not item.serial_number:
+        item.serial_number = serial_number.strip() or None
     item.qty_on_hand += qty
     if sop_status is not None: item.sop_status = sop_status
     db.add(Movement(movement_type=MovementType.receive, item_id=item.id, item_name=item.name, qty=qty, actor=actor, reason=reason))
