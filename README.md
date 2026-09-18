@@ -1,81 +1,43 @@
 # ETS Safouene Daoud et Cie — Parts & Tools Management
 
-Full production architecture derived from the original Supply Room kiosk: touchscreen frontend, FastAPI backend, PostgreSQL source of truth, audit/history, checkout/return, restocking, reports, optional Google Sheets mirror and Slack notifications.
+Production kiosk with a touchscreen frontend, FastAPI API, PostgreSQL, JWT authentication, inventory history, reports, and optional Sheets/Slack integrations.
 
-## Stack
+## Structure
 
-| Layer | Technology |
-| --- | --- |
-| UI | Vanilla HTML/CSS/JS (`index.html` + `src/`) |
-| API | Python FastAPI (`backend/`) |
-| Database | PostgreSQL |
-| Integrations | Optional Google Sheets + Slack |
-| Hosting | Docker / Railway |
-| Tests | Pytest + Playwright |
+- Root HTML/JavaScript files: kiosk frontend
+- `backend/app`: FastAPI application
+- `backend/app/routers`: authentication, inventory and report routes
+- `backend/app/services`: inventory, Sheets and Slack services
+- `docker-compose.yml`: frontend, API and PostgreSQL
+- `nginx.conf`: serves the kiosk and proxies `/api` to FastAPI
 
-## Architecture
+## Required production variables
 
-- Browser UI calls `/api/*`.
-- FastAPI owns authentication, inventory transactions, reports and audit data.
-- PostgreSQL is the source of truth.
-- Mutations use idempotency keys to make retries safe.
-- Optional Google Sheets and Slack integrations remain disabled until their environment variables are configured.
-- The original project remains untouched; this repository is the ETS Safouene adaptation.
+Configure these on the API service before its first start:
 
-## Local Docker start
+- `DATABASE_URL`
+- `JWT_SECRET` — new random value of at least 32 bytes
+- `ETS_ADMIN_PIN`
+- `ETS_STOREKEEPER_PIN`
+- `ETS_DEVELOPER_PIN`
+
+Never commit real PINs, passwords, webhook URLs, or service-account credentials.
+
+## Local start
 
 ```bash
 cp .env.example .env
+# Replace all placeholder secrets in .env
 docker compose up -d --build
 ```
 
-Open `http://localhost:61938`.
+Open http://localhost:61938.
 
-## Production variables
+## Railway
 
-Set at least `DATABASE_URL` and a long random `JWT_SECRET`. For the included bootstrap accounts, set `ETS_ADMIN_PIN` and `ETS_STOREKEEPER_PIN` before the first database seed. Disable seeding after initial setup with `SEED_ON_STARTUP=false` if desired.
+Use PostgreSQL plus two application services:
 
-## Repository structure
+1. Web: repository root and root `Dockerfile`.
+2. API: root directory `backend` and `backend/Dockerfile`.
 
-```text
-.
-├── .github/workflows/ci.yml
-├── backend/
-│   ├── app/
-│   │   ├── routers/
-│   │   ├── services/
-│   │   ├── auth.py
-│   │   ├── config.py
-│   │   ├── database.py
-│   │   ├── main.py
-│   │   ├── models.py
-│   │   ├── schemas.py
-│   │   └── seed.py
-│   ├── tests/
-│   ├── Dockerfile
-│   └── requirements.txt
-├── images/
-├── scripts/
-├── src/
-│   ├── api/
-│   ├── domain/
-│   ├── scanner/
-│   ├── state/
-│   └── ui/
-├── tests/smoke/
-├── Dockerfile
-├── docker-compose.yml
-├── nginx.conf
-├── package.json
-└── index.html
-```
-
-## Railway layout
-
-Use three services in one Railway project:
-
-- `ets-safouene-web`: root `Dockerfile`, public web frontend.
-- `ets-safouene-api`: `backend/Dockerfile`, FastAPI backend.
-- `Postgres`: persistent PostgreSQL database.
-
-The root nginx config is prepared to proxy `/api` and `/health` to the private Railway API service hostname `ets-safouene-api.railway.internal:8000`.
+Name the API service `ets-safouene-api`; nginx proxies to `ets-safouene-api.railway.internal:8000`.
