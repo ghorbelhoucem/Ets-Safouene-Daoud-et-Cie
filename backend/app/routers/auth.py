@@ -36,7 +36,7 @@ def login_pin(body: LoginPinRequest, db: Session = Depends(get_db)):
     if not matches:
         audit(db, "auth_failed", detail=f"pin role={body.role_key}")
         db.commit()
-        return {"ok": False, "error": "Incorrect PIN, try again.", "code": "BAD_PIN"}
+        return {"ok": False, "error": "Code PIN incorrect. Réessayez.", "code": "BAD_PIN"}
 
     # Unique PIN → single user
     unique = [u for u in matches if not u.shared_pin_group]
@@ -73,7 +73,7 @@ def login_pin(body: LoginPinRequest, db: Session = Depends(get_db)):
     if body.name:
         user = next((u for u in matches if u.name == body.name), None)
         if not user:
-            return {"ok": False, "error": "Name does not match this PIN.", "code": "BAD_NAME"}
+            return {"ok": False, "error": "Ce nom ne correspond pas à ce code PIN.", "code": "BAD_NAME"}
         token = create_access_token(user)
         audit(db, "auth_ok", actor=f"{user.name}/{user.role.value}")
         db.commit()
@@ -82,7 +82,7 @@ def login_pin(body: LoginPinRequest, db: Session = Depends(get_db)):
             person=PersonOut(name=user.name, role=user.role.value, code=f"{user.name}/{user.role.value}"),
         )
 
-    return {"ok": False, "error": "Ambiguous PIN.", "code": "AMBIGUOUS_PIN"}
+    return {"ok": False, "error": "Code PIN ambigu.", "code": "AMBIGUOUS_PIN"}
 
 
 @router.post("/login/operator")
