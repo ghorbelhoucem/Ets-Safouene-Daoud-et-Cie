@@ -25,7 +25,7 @@ services:
     container_name: ets-safouene-api
     environment:
       DATABASE_URL: postgresql+psycopg2://supply:supply@db:5432/supply
-      JWT_SECRET: ${JWT_SECRET:-dev-change-me-ets-safouene-supply-secret}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}\n      ETS_ADMIN_PIN: ${ETS_ADMIN_PIN:?Set ETS_ADMIN_PIN in .env}\n      ETS_STOREKEEPER_PIN: ${ETS_STOREKEEPER_PIN:?Set ETS_STOREKEEPER_PIN in .env}\n      ETS_DEVELOPER_PIN: ${ETS_DEVELOPER_PIN:?Set ETS_DEVELOPER_PIN in .env}
       SEED_ON_STARTUP: "true"
       CORS_ORIGINS: "*"
       GOOGLE_SHEET_SYNC_ENABLED: ${GOOGLE_SHEET_SYNC_ENABLED:-false}
