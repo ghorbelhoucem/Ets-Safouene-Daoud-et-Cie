@@ -480,7 +480,8 @@
   function itemNameHTML(itemName, serialOverride){
     const item = inventoryMap[itemName];
     const serial = serialOverride || (item && item.serial_number) || '';
-    return `<span>${esc(itemName)}${serial ? `<span class="item-meta" style="display:block;">N° de série : ${esc(serial)}</span>` : ''}</span>`;
+    const serialLabel = serial ? esc(serial) : 'Non renseigné';
+    return `<span>${esc(itemName)}<span class="item-meta" style="display:block;">N° de série : ${serialLabel}</span></span>`;
   }
 
   let lastFetchTime = 0;
@@ -541,9 +542,6 @@
     return [item.item, item.serial_number, item.barcode]
       .filter(Boolean)
       .some(value => String(value).toLowerCase().includes(q));
-  }
-  function serialMeta(item){
-    return item && item.serial_number ? `N° de série : ${esc(item.serial_number)}` : '';
   }
   function openCheckoutsFor(personCode){ return domain.openCheckoutsFor(personCode, inventoryMap, historyRows); }
   function allOpenToolCheckouts(){ return domain.allOpenToolCheckouts(inventoryMap, historyRows); }
