@@ -1148,9 +1148,9 @@
         ${isNewItem ? `
           <label>Nom du nouvel article</label>
           <input type="text" id="restockNewNameInput" placeholder="Ex. Cric hydraulique" style="font-family:'Inter',sans-serif;letter-spacing:normal;" value="${esc(restockNewItemName)}" />
-          <label>Numéro de série</label>
-          <input type="text" id="restockNewSerialInput" placeholder="Ex. KIA-SN-2026-001" style="font-family:'IBM Plex Mono',monospace;" value="${esc(restockNewSerialNumber)}" />
         ` : ''}
+        <label>Numéro de série</label>
+        <input type="text" id="restockNewSerialInput" placeholder="Ex. KIA-SN-2026-001" style="font-family:'IBM Plex Mono',monospace;" value="${esc(restockNewSerialNumber)}" />
         <label>Combien souhaitez-vous ajouter ?</label>
         ${qtyStepperHTML('restockQtyInput', restockQty)}
         ${restockError ? `<div class="error-msg">${esc(restockError)}</div>` : ''}
@@ -1184,7 +1184,12 @@
       row.onclick = ()=>{
         restockSelectedItem = row.getAttribute('data-name');
         restockError = null;
-        if(restockSelectedItem !== NEW_ITEM_SENTINEL){ restockNewItemName = ''; restockNewSerialNumber = ''; }
+        if(restockSelectedItem !== NEW_ITEM_SENTINEL){
+          restockNewItemName = '';
+          restockNewSerialNumber = (inventoryMap[restockSelectedItem] && inventoryMap[restockSelectedItem].serial_number) || '';
+        }else{
+          restockNewSerialNumber = '';
+        }
         renderStage();
         setTimeout(()=>{
           const el = document.getElementById(restockSelectedItem===NEW_ITEM_SENTINEL ? 'restockNewNameInput' : 'restockQtyInput');
@@ -1195,30 +1200,30 @@
     if(isNewItem){
       const nameInput = document.getElementById('restockNewNameInput');
       nameInput.oninput = ()=>{ restockNewItemName = nameInput.value; };
-      const serialInput = document.getElementById('restockNewSerialInput');
-      serialInput.oninput = ()=>{ restockNewSerialNumber = serialInput.value; };
     }
+    const serialInput = document.getElementById('restockNewSerialInput');
+    if(serialInput) serialInput.oninput = ()=>{ restockNewSerialNumber = serialInput.value; };
     if(restockBasket.length){
       document.getElementById('restockReviewBtn').onclick = ()=>{ screen='restockBasketReview'; renderStage(); };
     }
     if(selected){
       document.getElementById('restockConfirmBtn').onclick = ()=>{
         let itemName = selected;
-        let serialNumber = '';
+        let serialNumber = document.getElementById('restockNewSerialInput').value.trim();
         if(isNewItem){
           itemName = document.getElementById('restockNewNameInput').value.trim();
-          serialNumber = document.getElementById('restockNewSerialInput').value.trim();
           if(!itemName){ restockError='Saisissez le nom du nouvel article.'; renderStage(); return; }
-          if(!serialNumber){ restockError='Saisissez le numéro de série.'; renderStage(); return; }
           const dupe = Object.values(inventoryMap).find(it=>it.item.toLowerCase() === itemName.toLowerCase());
           if(dupe){ restockError = `« ${itemName} » existe déjà — sélectionnez-le dans la liste.`; renderStage(); return; }
         }
+        if(!serialNumber){ restockError='Saisissez le numéro de série.'; renderStage(); return; }
         const qty = parseInt(document.getElementById('restockQtyInput').value,10);
         if(!qty || qty < 1){ restockError='Saisissez une quantité d’au moins 1.'; renderStage(); return; }
 
         const existingEntry = restockBasket.find(b=>b.itemName.toLowerCase() === itemName.toLowerCase());
         if(existingEntry){
           existingEntry.qty += qty;
+          existingEntry.serialNumber = serialNumber;
         }else{
           restockBasket.push({
             itemName, qty, category: restockCategory, isNewItem: isNewItem,

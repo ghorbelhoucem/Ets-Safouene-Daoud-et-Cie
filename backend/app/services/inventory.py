@@ -110,7 +110,7 @@ def receive_stock(db: Session, name: str, qty: int, actor: str, reason: str | No
             serial_number=(serial_number or "").strip() or None,
         )
         db.add(item); db.flush()
-    elif serial_number and not item.serial_number:
+    elif serial_number:
         item.serial_number = serial_number.strip() or None
     item.qty_on_hand += qty
     if sop_status is not None: item.sop_status = sop_status
