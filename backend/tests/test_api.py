@@ -174,6 +174,7 @@ def test_complete_garage_workflow(client: TestClient):
             "complaint": "Bruit au freinage",
             "priority": "Haute",
             "mileage_in": 15010,
+            "scheduled_for": "2026-09-22T09:30:00+00:00",
         },
     )
     assert order_response.status_code == 200
@@ -233,6 +234,18 @@ def test_complete_garage_workflow(client: TestClient):
     assert invoice_response.status_code == 200
     invoice = invoice_response.json()["invoice"]
     assert invoice["total"] == 238.0
+
+    invoice_detail = client.get(
+        f"/api/garage/invoices/{invoice['id']}/detail", headers=wh
+    )
+    assert invoice_detail.status_code == 200
+    assert invoice_detail.json()["vehicle"]["registration"] == "123 TUN 4567"
+    assert len(invoice_detail.json()["order"]["lines"]) == 2
+
+    history = client.get(f"/api/garage/vehicles/{vehicle_id}/history", headers=wh)
+    assert history.status_code == 200
+    assert history.json()["vehicle"]["vin"] == "KNATESTVIN000001"
+    assert history.json()["orders"][0]["order_number"].startswith("OR-")
 
     payment_response = client.post(
         f"/api/garage/invoices/{invoice['id']}/payments",

@@ -217,6 +217,22 @@ def create_vehicle(body: VehicleCreate, db: Session = Depends(get_db), _user: Us
     return {"ok": True, "vehicle": _vehicle(row, customer.name if customer else "")}
 
 
+@router.get("/vehicles/{vehicle_id}/history")
+def vehicle_history(vehicle_id: uuid.UUID, db: Session = Depends(get_db), _user: User = Depends(require_report_access)):
+    vehicle = db.get(Vehicle, vehicle_id)
+    if not vehicle: raise HTTPException(404, "Véhicule introuvable")
+    customer = db.get(Customer, vehicle.customer_id)
+    orders = db.execute(
+        select(RepairOrder).where(RepairOrder.vehicle_id == vehicle.id).order_by(RepairOrder.opened_at.desc())
+    ).scalars().all()
+    return {
+        "ok": True,
+        "vehicle": _vehicle(vehicle, customer.name if customer else ""),
+        "customer": _customer(customer) if customer else None,
+        "orders": [_order_payload(db, row) for row in orders],
+    }
+
+
 @router.get("/mechanics")
 def list_mechanics(db: Session = Depends(get_db), _user: User = Depends(require_report_access)):
     rows = db.execute(select(Mechanic).order_by(Mechanic.name)).scalars().all()
@@ -296,6 +312,30 @@ def add_order_line(order_id: uuid.UUID, body: RepairLineCreate, db: Session = De
 def list_invoices(db: Session = Depends(get_db), _user: User = Depends(require_report_access)):
     rows = db.execute(select(Invoice).order_by(Invoice.issued_at.desc())).scalars().all()
     return {"ok": True, "invoices": [_invoice_payload(db, row) for row in rows]}
+
+
+@router.get("/invoices/{invoice_id}/detail")
+def invoice_detail(invoice_id: uuid.UUID, db: Session = Depends(get_db), _user: User = Depends(require_report_access)):
+    invoice = db.get(Invoice, invoice_id)
+    if not invoice: raise HTTPException(404, "Facture introuvable")
+    order = db.get(RepairOrder, invoice.repair_order_id)
+    customer = db.get(Customer, order.customer_id) if order else None
+    vehicle = db.get(Vehicle, order.vehicle_id) if order else None
+    payments = db.execute(
+        select(Payment).where(Payment.invoice_id == invoice.id).order_by(Payment.paid_at)
+    ).scalars().all()
+    return {
+        "ok": True,
+        "invoice": _invoice_payload(db, invoice),
+        "order": _order_payload(db, order) if order else None,
+        "customer": _customer(customer) if customer else None,
+        "vehicle": _vehicle(vehicle, customer.name if customer else "") if vehicle else None,
+        "payments": [{
+            "id": str(row.id), "amount": _money(row.amount), "method": row.method,
+            "reference": row.reference, "received_by": row.received_by,
+            "paid_at": _now_iso(row.paid_at),
+        } for row in payments],
+    }
 
 
 @router.post("/invoices")

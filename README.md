@@ -25,8 +25,11 @@ Le portail `/garage.html` réutilise l'authentification et le stock existants et
 - Fiches clients et véhicules (immatriculation, VIN, kilométrage et historique futur).
 - Équipe de mécaniciens, spécialités et taux horaires.
 - Ordres de réparation avec priorité, affectation, diagnostic et cycle de statut.
+- Planning atelier alimenté par les rendez-vous des ordres de réparation.
+- Historique complet des interventions par véhicule.
 - Lignes de main-d'œuvre, services et pièces; une pièce liée décrémente automatiquement le stock.
 - Facturation depuis l'ordre de réparation, TVA, remise et règlements partiels ou complets.
+- Facture A4 imprimable ou enregistrable en PDF depuis le navigateur.
 - Fournisseurs, commandes d'achat et réception automatique dans le stock.
 - Permissions : Management gère finance/achats/équipe; Majdi gère clients, véhicules et atelier.
 
@@ -42,7 +45,7 @@ Railway exécute un seul conteneur applicatif construit avec le `Dockerfile` rac
 - PostgreSQL est un service Railway séparé.
 - Le contrôle de santé est disponible sous `/health`.
 
-Le code serveur utilisé en production se trouve dans `backend/app`. Les fichiers frontend actifs sont `index.html`, `garage.html`, `garage.js`, `config.js`, `client.js`, `inventory.js`, `machine.js`, `store.js`, `keyboardScanner.js` et `renderer.js`.
+Le code serveur utilisé en production se trouve dans `backend/app`. Les fichiers frontend actifs sont `index.html`, `garage.html`, `garage-invoice.html`, `garage.js`, `config.js`, `client.js`, `inventory.js`, `machine.js`, `store.js`, `keyboardScanner.js` et `renderer.js`.
 
 ## Variables obligatoires
 
