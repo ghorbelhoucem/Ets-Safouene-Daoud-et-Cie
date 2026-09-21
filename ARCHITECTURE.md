@@ -4,9 +4,11 @@ Application autonome de gestion du stock de pièces et d’outillage automobile 
 
 ## Déploiement
 
-Un conteneur unique sert l’API FastAPI et l’interface web. PostgreSQL conserve les
-utilisateurs, articles, mouvements, emprunts, retours et déclarations de garantie.
-Railway fournit la base et injecte les secrets à l’exécution.
+Un conteneur local sert l’API FastAPI et l’interface web. Un second conteneur
+PostgreSQL conserve les utilisateurs, clients, véhicules, ordres, factures,
+articles, mouvements, emprunts, retours et déclarations de garantie. Docker
+Compose injecte les secrets générés localement et conserve la base dans un volume
+persistant sur le PC du garage. Railway n'est pas utilisé.
 
 ## Composants
 
