@@ -59,7 +59,7 @@ def trigger_sync(_user: User = Depends(require_manager)):
     with SessionLocal() as db: return sync_mirror(db)
 
 
-# The Railway free-plan deployment serves the kiosk and API from one container.
+# The local application container serves the kiosk, Garage Plus and API together.
 _static_dir = Path("/app/static")
 if (_static_dir / "index.html").exists():
     app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="frontend")
