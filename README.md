@@ -36,14 +36,17 @@ Le portail `/garage.html` réutilise l'authentification et le stock existants et
 Les nouvelles tables sont créées au démarrage par SQLAlchemy. Aucune table du
 stock existant n'est supprimée ou renommée.
 
-## Architecture de production
+## Architecture locale
 
-Railway exécute un seul conteneur applicatif construit avec le `Dockerfile` racine :
+Docker Desktop exécute l'application et la base directement sur le PC du garage :
 
 - FastAPI sert l’API sous `/api`.
 - FastAPI sert également le frontend statique à la racine `/`.
-- PostgreSQL est un service Railway séparé.
+- PostgreSQL conserve les données dans un volume local persistant.
 - Le contrôle de santé est disponible sous `/health`.
+
+Railway n'est pas requis. GitHub conserve le code; il ne stocke pas la base de
+données locale. Les instructions Windows sont dans `INSTALLATION_LOCALE.md`.
 
 Le code serveur utilisé en production se trouve dans `backend/app`. Les fichiers frontend actifs sont `index.html`, `garage.html`, `garage-invoice.html`, `garage.js`, `config.js`, `client.js`, `inventory.js`, `machine.js`, `store.js`, `keyboardScanner.js` et `renderer.js`.
 
@@ -57,7 +60,13 @@ Le code serveur utilisé en production se trouve dans `backend/app`. Les fichier
 
 Variables facultatives : `CORS_ORIGINS`, `LEGACY_WEBAPP_URL`, `SHEET_SYNC_INTERVAL_MINUTES`, `SLACK_TRANSACTIONS_WEBHOOK_URL`, `SLACK_PURCHASE_WEBHOOK_URL`.
 
-## Démarrage local
+## Démarrage local rapide sous Windows
+
+Installer et démarrer Docker Desktop, puis double-cliquer sur
+`start-garage.cmd`. Au premier lancement, le programme demande les deux PIN à
+quatre chiffres, génère les autres secrets et ouvre l'application.
+
+## Démarrage local manuel
 
 Créer un fichier `.env` contenant au minimum :
 
