@@ -17,14 +17,16 @@ services:
   app:
     build: .
     ports:
-      - "61938:8000"
+      # Localhost by default. Set APP_HOST=0.0.0.0 only for trusted LAN access.
+      - "${APP_HOST:-127.0.0.1}:61938:8000"
     environment:
       DATABASE_URL: postgresql+psycopg2://ets:${POSTGRES_PASSWORD}@db:5432/ets_safouene
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
       ETS_ADMIN_PIN: ${ETS_ADMIN_PIN:?Set ETS_ADMIN_PIN in .env}
       ETS_STOREKEEPER_PIN: ${ETS_STOREKEEPER_PIN:?Set ETS_STOREKEEPER_PIN in .env}
       SEED_ON_STARTUP: "true"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:61938}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:61938,http://127.0.0.1:61938}
       LEGACY_WEBAPP_URL: ${LEGACY_WEBAPP_URL:-}
       SHEET_SYNC_INTERVAL_MINUTES: ${SHEET_SYNC_INTERVAL_MINUTES:-10}
       SLACK_TRANSACTIONS_WEBHOOK_URL: ${SLACK_TRANSACTIONS_WEBHOOK_URL:-}
