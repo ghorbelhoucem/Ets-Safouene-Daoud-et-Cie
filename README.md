@@ -2,6 +2,10 @@
 
 Application métier distincte destinée à la gestion du stock de pièces automobiles et des outils d’atelier de l’entreprise ETS Safouene Daoud et Cie.
 
+> La branche `main` conserve l'application de stock rapide. La branche
+> `garage-plus` ajoute le portail DMS complet sans modifier le produit de stock
+> déployé.
+
 ## Fonctionnalités
 
 - Connexion par code PIN à 4 chiffres pour les profils **Management** et **Majdi**.
@@ -13,6 +17,22 @@ Application métier distincte destinée à la gestion du stock de pièces automo
 - Interface tactile en français avec lecteur code-barres/QR.
 - API FastAPI, PostgreSQL, jetons JWT et protection des opérations par rôle.
 
+## Garage Plus (`garage-plus`)
+
+Le portail `/garage.html` réutilise l'authentification et le stock existants et ajoute :
+
+- Tableau de bord avec ordres actifs, véhicules prêts, chiffre facturé, créances et stock faible.
+- Fiches clients et véhicules (immatriculation, VIN, kilométrage et historique futur).
+- Équipe de mécaniciens, spécialités et taux horaires.
+- Ordres de réparation avec priorité, affectation, diagnostic et cycle de statut.
+- Lignes de main-d'œuvre, services et pièces; une pièce liée décrémente automatiquement le stock.
+- Facturation depuis l'ordre de réparation, TVA, remise et règlements partiels ou complets.
+- Fournisseurs, commandes d'achat et réception automatique dans le stock.
+- Permissions : Management gère finance/achats/équipe; Majdi gère clients, véhicules et atelier.
+
+Les nouvelles tables sont créées au démarrage par SQLAlchemy. Aucune table du
+stock existant n'est supprimée ou renommée.
+
 ## Architecture de production
 
 Railway exécute un seul conteneur applicatif construit avec le `Dockerfile` racine :
@@ -22,7 +42,7 @@ Railway exécute un seul conteneur applicatif construit avec le `Dockerfile` rac
 - PostgreSQL est un service Railway séparé.
 - Le contrôle de santé est disponible sous `/health`.
 
-Le code serveur utilisé en production se trouve dans `backend/app`. Les fichiers frontend actifs sont `index.html`, `config.js`, `client.js`, `inventory.js`, `machine.js`, `store.js`, `keyboardScanner.js` et `renderer.js`.
+Le code serveur utilisé en production se trouve dans `backend/app`. Les fichiers frontend actifs sont `index.html`, `garage.html`, `garage.js`, `config.js`, `client.js`, `inventory.js`, `machine.js`, `store.js`, `keyboardScanner.js` et `renderer.js`.
 
 ## Variables obligatoires
 

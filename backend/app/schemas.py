@@ -74,6 +74,7 @@ class AdjustRequest(BaseModel):
 
 
 class InventoryRow(BaseModel):
+    id: str | None = None
     reference: str
     item: str
     quantity: int

@@ -29,7 +29,7 @@ def snapshot(db: Session) -> dict:
         if checkout.item_id in item_ids
     ]
     warranties = db.execute(select(WarrantyReport).order_by(WarrantyReport.created_at.desc())).scalars().all()
-    inventory = [{"reference": x.category.value, "item": x.name, "quantity": x.qty_on_hand,
+    inventory = [{"id": str(x.id), "reference": x.category.value, "item": x.name, "quantity": x.qty_on_hand,
                   "availability": availability_label(db, x), "barcode": x.barcode,
                   "serial_number": x.serial_number,
                   "reorder_min": x.reorder_min, "sop_status": x.sop_status} for x in items]

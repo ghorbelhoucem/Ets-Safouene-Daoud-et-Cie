@@ -124,3 +124,169 @@ def test_hidden_sop_category_cannot_be_created(client: TestClient):
     assert response.status_code == 200
     assert response.json()["ok"] is False
     assert response.json()["code"] == "BAD_CATEGORY"
+
+
+def test_complete_garage_workflow(client: TestClient):
+    manager = login(client, "management", "4827")
+    majdi = login(client, "maintenance", "7351")
+    mh = {"Authorization": f"Bearer {manager}"}
+    wh = {"Authorization": f"Bearer {majdi}"}
+
+    customer_response = client.post(
+        "/api/garage/customers",
+        headers=wh,
+        json={"name": "Client Test", "phone": "20111222", "address": "Tunis"},
+    )
+    assert customer_response.status_code == 200
+    customer_id = customer_response.json()["customer"]["id"]
+
+    vehicle_response = client.post(
+        "/api/garage/vehicles",
+        headers=wh,
+        json={
+            "customer_id": customer_id,
+            "registration": "123 TUN 4567",
+            "vin": "KNATESTVIN000001",
+            "make": "KIA",
+            "model": "Sportage",
+            "year": 2024,
+            "mileage": 15000,
+        },
+    )
+    assert vehicle_response.status_code == 200
+    vehicle_id = vehicle_response.json()["vehicle"]["id"]
+
+    mechanic_response = client.post(
+        "/api/garage/mechanics",
+        headers=mh,
+        json={"name": "Technicien Test", "specialty": "Diagnostic", "hourly_rate": 35},
+    )
+    assert mechanic_response.status_code == 200
+    mechanic_id = mechanic_response.json()["mechanic"]["id"]
+
+    order_response = client.post(
+        "/api/garage/orders",
+        headers=wh,
+        json={
+            "customer_id": customer_id,
+            "vehicle_id": vehicle_id,
+            "mechanic_id": mechanic_id,
+            "complaint": "Bruit au freinage",
+            "priority": "Haute",
+            "mileage_in": 15010,
+        },
+    )
+    assert order_response.status_code == 200
+    order_id = order_response.json()["order"]["id"]
+
+    labor_response = client.post(
+        f"/api/garage/orders/{order_id}/lines",
+        headers=wh,
+        json={
+            "line_type": "labor",
+            "description": "Diagnostic et remplacement",
+            "quantity": 2,
+            "unit_price": 45,
+            "unit_cost": 35,
+        },
+    )
+    assert labor_response.status_code == 200
+    assert labor_response.json()["order"]["total"] == 90
+
+    stock_response = client.post(
+        "/api/receive",
+        headers=mh,
+        json={
+            "client_request_id": "garage-stock-001",
+            "item": "Plaquettes de frein KIA",
+            "qty": 4,
+            "category": "Station Parts",
+            "serial_number": "PAD-001",
+        },
+    )
+    assert stock_response.status_code == 200
+    inventory = client.get("/api/inventory", headers=mh).json()["inventory"]
+    part = next(row for row in inventory if row["item"] == "Plaquettes de frein KIA")
+
+    part_response = client.post(
+        f"/api/garage/orders/{order_id}/lines",
+        headers=wh,
+        json={
+            "line_type": "part",
+            "description": "Plaquettes de frein KIA",
+            "inventory_item_id": part["id"],
+            "quantity": 1,
+            "unit_price": 120,
+            "unit_cost": 75,
+        },
+    )
+    assert part_response.status_code == 200
+    assert part_response.json()["order"]["total"] == 210
+    inventory = client.get("/api/inventory", headers=mh).json()["inventory"]
+    assert next(row for row in inventory if row["item"] == "Plaquettes de frein KIA")["quantity"] == 3
+
+    invoice_response = client.post(
+        "/api/garage/invoices",
+        headers=mh,
+        json={"repair_order_id": order_id, "tax_rate": 19, "discount": 10},
+    )
+    assert invoice_response.status_code == 200
+    invoice = invoice_response.json()["invoice"]
+    assert invoice["total"] == 238.0
+
+    payment_response = client.post(
+        f"/api/garage/invoices/{invoice['id']}/payments",
+        headers=mh,
+        json={"amount": 100, "method": "Espèces"},
+    )
+    assert payment_response.status_code == 200
+    assert payment_response.json()["invoice"]["status"] == "Partielle"
+    assert payment_response.json()["invoice"]["balance"] == 138.0
+
+    supplier_response = client.post(
+        "/api/garage/suppliers", headers=mh, json={"name": "KIA Parts Tunisie"}
+    )
+    assert supplier_response.status_code == 200
+    supplier_id = supplier_response.json()["supplier"]["id"]
+    purchase_response = client.post(
+        "/api/garage/purchases",
+        headers=mh,
+        json={
+            "supplier_id": supplier_id,
+            "lines": [
+                {
+                    "inventory_item_id": part["id"],
+                    "description": "Plaquettes de frein KIA",
+                    "quantity": 3,
+                    "unit_cost": 70,
+                }
+            ],
+        },
+    )
+    assert purchase_response.status_code == 200
+    purchase_id = purchase_response.json()["purchase_id"]
+    received = client.post(
+        f"/api/garage/purchases/{purchase_id}/receive",
+        headers=mh,
+        json={"received_quantities": None},
+    )
+    assert received.status_code == 200
+    assert received.json()["status"] == "Reçue"
+    inventory = client.get("/api/inventory", headers=mh).json()["inventory"]
+    assert next(row for row in inventory if row["item"] == "Plaquettes de frein KIA")["quantity"] == 6
+
+    dashboard = client.get("/api/garage/dashboard", headers=wh)
+    assert dashboard.status_code == 200
+    assert dashboard.json()["kpis"]["customers"] == 1
+    assert dashboard.json()["kpis"]["vehicles"] == 1
+    assert dashboard.json()["kpis"]["outstanding"] == 138.0
+
+
+def test_majdi_cannot_access_financial_mutations(client: TestClient):
+    token = login(client, "maintenance", "7351")
+    response = client.post(
+        "/api/garage/suppliers",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Fournisseur interdit"},
+    )
+    assert response.status_code == 403

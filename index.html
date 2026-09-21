@@ -990,6 +990,11 @@
           <div class="sub">Signaler un problème de pièce</div>
         </div>
         ` : ''}
+        <div class="menu-card" id="garagePlusCard" style="grid-column:1/-1;border-color:rgba(234,0,41,.55);">
+          <div class="big">🏁</div>
+          <div class="label">Garage Plus</div>
+          <div class="sub">Clients, véhicules, atelier, facturation et achats</div>
+        </div>
       </div>
       ${myOpens.length ? `<div class="open-list"><h3>Matériel actuellement emprunté par vous</h3>
         ${(()=>{
@@ -1024,6 +1029,7 @@
     if(canRestock && selectedRoom !== 'sop'){
       document.getElementById('warrantyCard').onclick = ()=>{ warrantyError=null; screen='warranty'; renderStage(); };
     }
+    document.getElementById('garagePlusCard').onclick = ()=>{ saveSession(); window.location.href='/garage.html'; };
   }
 
   function stageRestockCategory(stage, banner){
