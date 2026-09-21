@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg2://supply:supply@db:5432/supply"
+    database_url: str = "postgresql+psycopg2://ets:ets@db:5432/ets_safouene"
     jwt_secret: str = "change-me-in-production-use-long-random-string"
     jwt_expire_minutes: int = 480
     cors_origins: str = "*"
